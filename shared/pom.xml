@@ -14,5 +14,10 @@
 
     <dependencies>
         <!-- Shared DTOs and Enums (No business logic) -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 </project>

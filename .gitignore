@@ -14,3 +14,4 @@ docker-compose.override.yml
 *.docx
 .agent/
 *.txt
+behavioral_risk_scorer_guide.md
