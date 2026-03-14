@@ -1,45 +1,28 @@
-package com.sentinel.eventstore.model;
+package com.sentinel.shared.dto;
 
 import com.sentinel.shared.enums.Decision;
 import com.sentinel.shared.enums.EventType;
-import jakarta.persistence.*;
 
 import java.util.UUID;
 
-@Entity
-@Table(name = "security_events")
-public class SecurityEvent {
+public class TimelineEventDTO {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
-
-    @Column(name = "session_id", nullable = false)
     private UUID sessionId;
-
-    @Column(name = "timestamp_ns", nullable = false)
     private long timestampNs;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false)
     private EventType eventType;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "decision")
     private Decision decision;
-
-    @Column(name = "rule_matched")
     private String ruleMatched;
 
-    @Column(name = "source_ip")
-    private String sourceIp;
+    public TimelineEventDTO() {}
 
-    @Column(name = "endpoint")
-    private String endpoint;
-
-    public SecurityEvent() {}
-
-    public UUID getId() { return id; }
+    public TimelineEventDTO(UUID sessionId, long timestampNs, EventType eventType,
+                             Decision decision, String ruleMatched) {
+        this.sessionId = sessionId;
+        this.timestampNs = timestampNs;
+        this.eventType = eventType;
+        this.decision = decision;
+        this.ruleMatched = ruleMatched;
+    }
 
     public UUID getSessionId() { return sessionId; }
     public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
@@ -55,10 +38,4 @@ public class SecurityEvent {
 
     public String getRuleMatched() { return ruleMatched; }
     public void setRuleMatched(String ruleMatched) { this.ruleMatched = ruleMatched; }
-
-    public String getSourceIp() { return sourceIp; }
-    public void setSourceIp(String sourceIp) { this.sourceIp = sourceIp; }
-
-    public String getEndpoint() { return endpoint; }
-    public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
 }

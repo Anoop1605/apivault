@@ -1,15 +1,19 @@
 package com.sentinel.forensics.api;
 
 import com.sentinel.forensics.service.ReplayService;
-import com.sentinel.shared.dto.EventDTO;
+import com.sentinel.shared.dto.PolicySnapshot;
 import com.sentinel.shared.dto.ReplayReport;
-import com.sentinel.shared.dto.StepDecision;
-import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
-import java.util.*;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/forensics/sessions")
+@Tag(name = "Replay", description = "Session replay and what-if simulation")
 public class ReplayController {
 
     private final ReplayService replayService;
@@ -19,23 +23,29 @@ public class ReplayController {
         this.replayService = replayService;
     }
 
-    /**
-     * What-If Simulation API
-     * POST /forensics/sessions/{sessionId}/whatif
-     * Request body: PolicySnapshot (alternate rules)
-     * Response: ReplayReport
-     * Example curl:
-     * curl -X POST "http://localhost:8080/forensics/sessions/{sessionId}/whatif" -H "Content-Type: application/json" -d '{"rules": ["ruleA", "ruleB"]}'
-     */
-    @PostMapping("/{sessionId}/whatif")
-    public ReplayReport simulateWhatIf(@PathVariable UUID sessionId, @RequestBody com.sentinel.shared.dto.PolicySnapshot alternateSnapshot) {
-        return replayService.simulateWhatIf(sessionId, alternateSnapshot);
-    }
-
-    // GET /forensics/sessions/{sessionId}/timeline
+    @Operation(
+        summary = "Replay a session",
+        description = "Reconstructs the exact decision sequence for a session using the " +
+                      "frozen policy snapshot active at the time (PRD FR-RE-01, FR-RE-02)."
+    )
     @GetMapping("/{sessionId}/timeline")
-    public ReplayReport getSessionTimeline(@PathVariable UUID sessionId) {
+    public ReplayReport getSessionTimeline(
+            @Parameter(description = "Session UUID to replay")
+            @PathVariable UUID sessionId) {
         return replayService.replaySession(sessionId);
     }
-    // mockEvents removed; events now fetched via EventStoreClient
+
+    @Operation(
+        summary = "What-if simulation",
+        description = "Re-evaluates all events in a session against an alternate policy rule set. " +
+                      "Returns per-step original vs simulated decisions and firstDivergenceStep " +
+                      "(PRD FR-RE-03, FR-RE-04)."
+    )
+    @PostMapping("/{sessionId}/whatif")
+    public ReplayReport simulateWhatIf(
+            @Parameter(description = "Session UUID to simulate")
+            @PathVariable UUID sessionId,
+            @RequestBody PolicySnapshot alternateSnapshot) {
+        return replayService.simulateWhatIf(sessionId, alternateSnapshot);
+    }
 }
