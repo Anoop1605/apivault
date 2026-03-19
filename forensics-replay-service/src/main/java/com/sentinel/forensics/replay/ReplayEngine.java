@@ -30,10 +30,11 @@ public class ReplayEngine {
      *       once policy-engine-service provides a real snapshot API.
      */
     public List<StepDecision> reconstruct(List<EventDTO> events, PolicySnapshot snapshot) {
-        events.sort(Comparator.comparingLong(EventDTO::getTimestampNs));
+        List<EventDTO> sortedEvents = new ArrayList<>(events);
+        sortedEvents.sort(Comparator.comparingLong(EventDTO::getTimestampNs));
         List<StepDecision> steps = new ArrayList<>();
 
-        for (EventDTO event : steps_loop(events)) {
+        for (EventDTO event : steps_loop(sortedEvents)) {
             String[] result = evaluateRules(event, snapshot);
             String decision   = result[0];
             String ruleMatched = result[1];

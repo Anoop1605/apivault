@@ -24,7 +24,7 @@ public class ReplayService {
     // PRD FR-RE-03: What-if simulation with alternate PolicySnapshot
     public ReplayReport simulateWhatIf(UUID sessionId, com.sentinel.shared.dto.PolicySnapshot alternateSnapshot) {
         List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-        com.sentinel.shared.dto.PolicySnapshot originalSnapshot = fetchPolicySnapshot(sessionId);
+        com.sentinel.shared.dto.PolicySnapshot originalSnapshot = buildPolicySnapshot(events);
         ReplayReport report = whatIfSimulationEngine.simulate(
                 sessionId, events, originalSnapshot, alternateSnapshot);
         report.setHash(ReplayHashUtil.computeSessionHash(events, alternateSnapshot));
@@ -34,7 +34,7 @@ public class ReplayService {
     // PRD FR-RE-01, FR-RE-02: Fetch events + frozen snapshot, reconstruct decisions
     public ReplayReport replaySession(UUID sessionId) {
         List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-        com.sentinel.shared.dto.PolicySnapshot snapshot = fetchPolicySnapshot(sessionId);
+        com.sentinel.shared.dto.PolicySnapshot snapshot = buildPolicySnapshot(events);
         List<StepDecision> steps = replayEngine.reconstruct(events, snapshot);
 
         // Extract originalDecisions list from steps
@@ -64,8 +64,7 @@ public class ReplayService {
      * TODO: Replace with a real PolicySnapshotClient call once policy-engine-service
      *       exposes GET /admin/policies/snapshots/{snapshotId}.
      */
-    private com.sentinel.shared.dto.PolicySnapshot fetchPolicySnapshot(UUID sessionId) {
-        List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
+    com.sentinel.shared.dto.PolicySnapshot buildPolicySnapshot(List<EventDTO> events) {
         // Use policyRuleId values from the events as stand-in for the frozen rule list
         List<String> rules = events.stream()
                 .map(EventDTO::getPolicyRuleId)
