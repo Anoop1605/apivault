@@ -36,8 +36,7 @@ public class ForensicQueryService {
      */
     public boolean verifyReplayHash(UUID sessionId, String expectedHash) {
         List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-        // Use empty snapshot for verification (same default as replaySession)
-        PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
+        PolicySnapshot snapshot = replayService.buildPolicySnapshot(events);
         String actualHash = ReplayHashUtil.computeSessionHash(events, snapshot);
         return actualHash.equals(expectedHash);
     }
@@ -92,4 +91,5 @@ public class ForensicQueryService {
         }
         return summaries;
     }
+
 }

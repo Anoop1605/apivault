@@ -38,15 +38,16 @@ public class WhatIfSimulationEngine {
                                   PolicySnapshot originalSnapshot,
                                   PolicySnapshot alternateSnapshot) {
 
-        events.sort(Comparator.comparingLong(EventDTO::getTimestampNs));
+        List<EventDTO> sortedEvents = new ArrayList<>(events);
+        sortedEvents.sort(Comparator.comparingLong(EventDTO::getTimestampNs));
 
         List<StepDecision> steps        = new ArrayList<>();
         List<String> originalDecisions  = new ArrayList<>();
         List<String> simulatedDecisions = new ArrayList<>();
         int firstDivergenceStep = -1;
 
-        for (int i = 0; i < events.size(); i++) {
-            EventDTO event = events.get(i);
+        for (int i = 0; i < sortedEvents.size(); i++) {
+            EventDTO event = sortedEvents.get(i);
 
             // Evaluate with original frozen snapshot
             String[] original   = ReplayEngine.evaluateRules(event, originalSnapshot);
