@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Sentinel — Policy Trace</title>
+    <style>
+        body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 24px; }
+        h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+        nav { margin-bottom: 20px; }
+        nav a { color: #58a6ff; margin-right: 16px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .session-id { color: #8b949e; font-size: 13px; margin-bottom: 16px; }
+        .error { color: #f85149; background: #1c0a0a; padding: 10px; border-radius: 4px; margin: 12px 0; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin-bottom: 16px; }
+        .card h3 { margin: 0 0 12px 0; color: #58a6ff; font-size: 14px; }
+        .label { color: #8b949e; font-size: 12px; text-transform: uppercase; margin-bottom: 4px; }
+        .value { font-size: 14px; margin-bottom: 12px; }
+        .allow  { color: #3fb950; font-weight: bold; }
+        .block  { color: #f85149; font-weight: bold; }
+        .review { color: #d29922; font-weight: bold; }
+        .rule-tag { display: inline-block; background: #1f3a5f; color: #58a6ff; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin: 2px; }
+        .rule-matched { background: #1a3a1f; color: #3fb950; }
+        .hash { font-size: 11px; color: #8b949e; word-break: break-all; }
+        .back { color: #58a6ff; text-decoration: none; font-size: 13px; }
+    </style>
+</head>
+<body>
+<nav>
+    <a href="/dashboard">Sessions</a>
+    <a href="/dashboard/alerts">Alerts</a>
+</nav>
+<h1>Policy Decision Trace</h1>
+<div class="session-id">Session: <span th:text="${sessionId}">-</span></div>
+<a class="back" th:href="@{/dashboard/sessions/{id}/timeline(id=${sessionId})}">&larr; Back to timeline</a>
+
+<div th:if="${error}" class="error" th:text="${error}"></div>
+
+<div th:unless="${#maps.isEmpty(trace)}" style="margin-top: 16px;">
+    <div class="card">
+        <h3>Final Decision</h3>
+        <div class="label">Outcome</div>
+        <div class="value">
+            <span th:if="${trace['finalDecision'] == 'ALLOW'}"  class="allow">ALLOW</span>
+            <span th:if="${trace['finalDecision'] == 'BLOCK'}"  class="block">BLOCK</span>
+            <span th:if="${trace['finalDecision'] == 'REVIEW'}" class="review">REVIEW</span>
+        </div>
+        <div class="label">Tamper-Evident Hash</div>
+        <div class="hash" th:text="${trace['hash'] != null ? trace['hash'] : '-'}">-</div>
+    </div>
+
+    <div class="card">
+        <h3>Rules Evaluated</h3>
+        <span th:each="rule : ${trace['rulesEvaluated']}"
+              class="rule-tag" th:text="${rule}">RULE</span>
+        <div th:if="${#lists.isEmpty(trace['rulesEvaluated'])}" style="color:#8b949e;">None</div>
+    </div>
+
+    <div class="card">
+        <h3>Rules Matched</h3>
+        <span th:each="rule : ${trace['rulesMatched']}"
+              class="rule-tag rule-matched" th:text="${rule}">RULE</span>
+        <div th:if="${#lists.isEmpty(trace['rulesMatched'])}" style="color:#8b949e;">No rules matched</div>
+    </div>
+</div>
+
+<div class="card" th:if="${#maps.isEmpty(trace)}" style="color:#8b949e; text-align:center;">
+    No policy trace available for this session.
+</div>
+</body>
+</html>
