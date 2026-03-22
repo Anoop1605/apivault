@@ -87,7 +87,13 @@ public class ForensicQueryService {
             PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
             String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 
-            summaries.add(new SessionSummaryDTO(sessionId, start, end, events.size(), hash));
+            summaries.add(SessionSummaryDTO.builder()
+                    .sessionId(sessionId)
+                    .firstSeenNs(start)
+                    .lastSeenNs(end)
+                    .eventCount(events.size())
+                    .hash(hash)
+                    .build());
         }
         return summaries;
     }
