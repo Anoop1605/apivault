@@ -89,8 +89,8 @@ public class ForensicQueryService {
 
             summaries.add(SessionSummaryDTO.builder()
                     .sessionId(sessionId)
-                    .firstSeenNs(start)
-                    .lastSeenNs(end)
+                    .startTimestampNs(start)
+                    .endTimestampNs(end)
                     .eventCount(events.size())
                     .hash(hash)
                     .build());
