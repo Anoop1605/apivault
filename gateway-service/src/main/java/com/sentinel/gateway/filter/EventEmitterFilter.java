@@ -16,7 +16,9 @@ import reactor.core.publisher.Mono;
 
 import java.net.InetSocketAddress;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -38,9 +40,11 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
     @Value("${sentinel.gateway.version:2.0.0}")
     private String gatewayVersion;
 
-    /** Public endpoints that don't need event tracking */
-    private static final List<String> SKIP_PATHS = List.of(
-            "/actuator", "/health", "/metrics");
+    @Value("#{'${sentinel.gateway.public-paths:/actuator,/health,/metrics}'.split(',')}")
+    private List<String> publicPaths;
+
+    @Value("#{'${sentinel.gateway.redact-headers:Authorization,Cookie,Set-Cookie}'.split(',')}")
+    private List<String> redactHeaders;
 
     @Override
     public int getOrder() {
@@ -53,7 +57,7 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
         String path = exchange.getRequest().getURI().getPath();
 
         // Skip event emission for actuator endpoints
-        if (SKIP_PATHS.stream().anyMatch(path::startsWith)) {
+        if (publicPaths.stream().anyMatch(path::startsWith)) {
             return chain.filter(exchange);
         }
 
@@ -63,6 +67,16 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
         String userId = exchange.getAttribute("userId");
         @SuppressWarnings("unchecked")
         List<String> roles = exchange.getAttribute("roles");
+
+        Map<String, Object> requestContextMap = new HashMap<>();
+        exchange.getRequest().getHeaders().forEach((key, values) -> {
+            String val = String.join(",", values);
+            if (redactHeaders.stream().anyMatch(h -> h.equalsIgnoreCase(key))) {
+                requestContextMap.put(key, "[REDACTED]");
+            } else {
+                requestContextMap.put(key, val);
+            }
+        });
 
         // Build REQUEST_RECEIVED event (FR-GW-04)
         EventDTO receivedEvent = EventDTO.builder()
@@ -77,6 +91,7 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                 .sourceIp(extractClientIp(exchange))
                 .userAgent(exchange.getRequest().getHeaders().getFirst(HttpHeaders.USER_AGENT))
                 .gatewayVersion(gatewayVersion)
+                .requestContext(requestContextMap)
                 .build();
 
         // Emit REQUEST_RECEIVED, then proceed with chain
@@ -106,6 +121,7 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                             .sourceIp(extractClientIp(exchange))
                             .userAgent(exchange.getRequest().getHeaders().getFirst(HttpHeaders.USER_AGENT))
                             .gatewayVersion(gatewayVersion)
+                            .requestContext(requestContextMap)
                             .build();
 
                     return emitEvent(forwardedEvent);

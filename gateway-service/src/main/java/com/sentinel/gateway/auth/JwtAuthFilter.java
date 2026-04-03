@@ -45,8 +45,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private String gatewayVersion;
 
     /** Public endpoints that bypass JWT validation (PRD FR-AU-05). */
-    private static final List<String> PUBLIC_PATHS = List.of(
-            "/actuator", "/health", "/metrics");
+    @Value("#{'${sentinel.gateway.public-paths:/actuator,/health,/metrics}'.split(',')}")
+    private List<String> publicPaths;
 
     @Override
     public int getOrder() {
@@ -146,7 +146,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isPublicPath(String path) {
-        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+        return publicPaths.stream().anyMatch(path::startsWith);
     }
 
     private String extractClientIp(ServerWebExchange exchange) {

@@ -36,6 +36,8 @@ sentinel:
     url: ${EVENT_STORE_URL:http://localhost:8081}
   gateway:
     version: 2.0.0
+    public-paths: /actuator,/health,/metrics
+    redact-headers: Authorization,Cookie,Set-Cookie
 
 # Spring Actuator endpoints
 management:
