@@ -18,6 +18,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -104,20 +105,29 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
         String body = "{\"error\":\"Unauthorized\",\"message\":\"" + reason + "\"}";
+        byte[] bytes = body != null ? body.getBytes() : new byte[0];
         return exchange.getResponse().writeWith(
-                Mono.just(exchange.getResponse().bufferFactory().wrap(body.getBytes())));
+                Mono.just(exchange.getResponse().bufferFactory().wrap(bytes)));
     }
 
     /**
      * Emit AUTH_FAILED event to event-store-service.
      */
     private Mono<Void> emitAuthFailedEvent(ServerWebExchange exchange, String reason, String token) {
+        Object sessionAttr = exchange.getAttribute("sessionId");
+        String sessionIdStr = sessionAttr != null ? sessionAttr.toString() : UUID.randomUUID().toString();
+        UUID sessionId;
+        try {
+            sessionId = UUID.fromString(sessionIdStr);
+        } catch (IllegalArgumentException e) {
+            sessionId = UUID.randomUUID();
+        }
+
         EventDTO event = EventDTO.builder()
                 .eventId(UUID.randomUUID())
                 .timestampNs(Instant.now().getEpochSecond() * 1_000_000_000L + Instant.now().getNano())
                 .eventType(EventType.AUTH_FAILED)
-                .sessionId(UUID.fromString(
-                        exchange.getAttributeOrDefault("sessionId", UUID.randomUUID().toString())))
+                .sessionId(sessionId)
                 .endpoint(exchange.getRequest().getURI().getPath())
                 .httpMethod(exchange.getRequest().getMethod().name())
                 .sourceIp(extractClientIp(exchange))
@@ -128,7 +138,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return webClientBuilder.build()
                 .post()
                 .uri(eventStoreUrl + "/api/events")
-                .bodyValue(event)
+                .bodyValue((Object) event)
                 .retrieve()
                 .bodyToMono(Void.class)
                 .doOnError(e -> log.error("Failed to emit AUTH_FAILED event: {}", e.getMessage()))
@@ -144,8 +154,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         if (forwarded != null && !forwarded.isEmpty()) {
             return forwarded.split(",")[0].trim();
         }
-        return exchange.getRequest().getRemoteAddress() != null
-                ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
-                : "unknown";
+        InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
+        if (remoteAddress != null && remoteAddress.getAddress() != null) {
+            return remoteAddress.getAddress().getHostAddress();
+        }
+        return "unknown";
     }
 }

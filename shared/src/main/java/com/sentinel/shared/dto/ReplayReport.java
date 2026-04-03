@@ -33,6 +33,12 @@ public class ReplayReport {
     /** Snapshot ID used for the replay. */
     private UUID snapshotIdUsed;
 
+    /** The ID of the session. */
+    private UUID sessionId;
+
+    /** Computed hash of the replay report. */
+    private String hash;
+
     /**
      * Represents a single step in the replay.
      */
@@ -42,6 +48,7 @@ public class ReplayReport {
     @NoArgsConstructor
     public static class StepDecision {
         private UUID eventId;
+        private Long timestampNs;
         private String eventType;
         private String endpoint;
         private String httpMethod;

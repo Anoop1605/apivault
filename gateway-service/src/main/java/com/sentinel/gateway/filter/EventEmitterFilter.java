@@ -14,9 +14,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -51,7 +49,6 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
 
@@ -60,8 +57,11 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        String sessionId = exchange.getAttributeOrDefault("sessionId", UUID.randomUUID().toString());
+        Object sessionAttr = exchange.getAttribute("sessionId");
+        String sessionId = sessionAttr != null ? sessionAttr.toString() : UUID.randomUUID().toString();
+        
         String userId = exchange.getAttribute("userId");
+        @SuppressWarnings("unchecked")
         List<String> roles = exchange.getAttribute("roles");
 
         // Build REQUEST_RECEIVED event (FR-GW-04)
@@ -84,9 +84,8 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                 .then(chain.filter(exchange))
                 .then(Mono.defer(() -> {
                     // Post-filter: emit REQUEST_FORWARDED on success
-                    int statusCode = exchange.getResponse().getStatusCode() != null
-                            ? exchange.getResponse().getStatusCode().value()
-                            : 0;
+                    var status = exchange.getResponse().getStatusCode();
+                    int statusCode = status != null ? status.value() : 0;
 
                     EventType postEventType;
                     if (statusCode >= 200 && statusCode < 500) {
@@ -120,7 +119,7 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
         return webClientBuilder.build()
                 .post()
                 .uri(eventStoreUrl + "/api/events")
-                .bodyValue(event)
+                .bodyValue((Object) event)
                 .retrieve()
                 .bodyToMono(Void.class)
                 .doOnSuccess(v -> log.debug("Emitted {} event: {}", event.getEventType(), event.getEventId()))
@@ -146,8 +145,10 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
         if (forwarded != null && !forwarded.isEmpty()) {
             return forwarded.split(",")[0].trim();
         }
-        return exchange.getRequest().getRemoteAddress() != null
-                ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
-                : "127.0.0.1";
+        InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
+        if (remoteAddress != null && remoteAddress.getAddress() != null) {
+            return remoteAddress.getAddress().getHostAddress();
+        }
+        return "127.0.0.1";
     }
 }

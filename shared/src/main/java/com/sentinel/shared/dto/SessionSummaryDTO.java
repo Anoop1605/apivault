@@ -27,4 +27,5 @@ public class SessionSummaryDTO {
     private String userId;
     private Boolean flagged;
     private List<String> endpointsAccessed;
+    private String hash;
 }

@@ -12,5 +12,9 @@ public enum EventType {
     POLICY_DENIED,
     POLICY_NO_MATCH,
     REQUEST_FORWARDED,
-    GATEWAY_ERROR
+    GATEWAY_ERROR,
+    LOGIN,
+    LOGOUT,
+    ACCESS,
+    ATTACK
 }
