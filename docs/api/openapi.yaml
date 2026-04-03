@@ -1,0 +1,405 @@
+openapi: 3.0.3
+
+info:
+  title: Sentinel Forensic Replay API
+  version: 1.0.0
+  description: |
+    Sentinel is a forensic-first, zero-trust API gateway.
+
+    This API covers P4 (Forensics & UI Engineer) deliverables:
+    - Deterministic session replay using frozen policy snapshots (FR-RE-01, FR-RE-02)
+    - What-if policy simulation with divergence detection (FR-RE-03, FR-RE-04)
+    - Canonical SHA-256 tamper verification (PRD §10.3, AC-08)
+    - Dashboard data endpoints for session explorer, timeline, and alerts
+
+  contact:
+    name: Team Sentinel — P4
+
+servers:
+  - url: http://localhost:8083
+    description: forensics-replay-service (local)
+  - url: http://localhost:8084
+    description: forensic-dashboard (local)
+
+tags:
+  - name: Replay
+    description: Session replay and what-if simulation
+  - name: Forensic Query
+    description: Query sessions, reports, and hash verification
+  - name: Dashboard
+    description: Timeline, policy trace, and alert data
+
+# ─────────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────────
+paths:
+
+  # ── REPLAY ──────────────────────────────────────────────────
+
+  /forensics/sessions/{sessionId}/timeline:
+    get:
+      tags: [Replay]
+      summary: Replay a session
+      description: |
+        Reconstructs the exact decision sequence for a session using the
+        frozen policy snapshot that was active at the time (FR-RE-01, FR-RE-02).
+        Returns per-step decisions with the rule that fired at each step.
+      parameters:
+        - $ref: '#/components/parameters/sessionId'
+      responses:
+        '200':
+          description: Replay report with full decision trace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayReport'
+              example:
+                sessionId: "aaaaaaaa-0000-0000-0000-000000000001"
+                originalDecisions: ["ALLOW", "ALLOW", "ALLOW", "ALLOW"]
+                simulatedDecisions: ["ALLOW", "ALLOW", "ALLOW", "ALLOW"]
+                firstDivergenceStep: -1
+                hash: "a3f1c2d4e5b67890abcdef1234567890abcdef1234567890abcdef1234567890"
+      security:
+        - basicAuth: []
+
+  /forensics/sessions/{sessionId}/whatif:
+    post:
+      tags: [Replay]
+      summary: What-if simulation
+      description: |
+        Re-evaluates all events in a session against an alternate policy rule set.
+        Returns per-step original vs simulated decisions and the first step where
+        outcomes diverge — e.g. "attack would have been blocked at step 2 with
+        stricter rules" (FR-RE-03, FR-RE-04).
+
+        Rule format: simple tokens like BLOCK_DELETE, ALLOW_GET, BLOCK_ATTACK, BLOCK_ALL.
+      parameters:
+        - $ref: '#/components/parameters/sessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicySnapshot'
+            example:
+              rules: ["BLOCK_ATTACK", "BLOCK_DELETE", "ALLOW_GET"]
+      responses:
+        '200':
+          description: Simulation report with divergence analysis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayReport'
+              example:
+                sessionId: "cccccccc-0000-0000-0000-000000000003"
+                originalDecisions: ["ALLOW","ALLOW","ALLOW","BLOCK","BLOCK","BLOCK"]
+                simulatedDecisions: ["ALLOW","ALLOW","ALLOW","BLOCK","BLOCK","BLOCK"]
+                firstDivergenceStep: -1
+                hash: "b1e2f3a4c5d67890abcdef1234567890abcdef1234567890abcdef1234567890"
+      security:
+        - basicAuth: []
+
+  # ── FORENSIC QUERY ───────────────────────────────────────────
+
+  /forensics/query/sessions:
+    get:
+      tags: [Forensic Query]
+      summary: List all sessions
+      description: Returns summary metadata for all known replay sessions.
+      responses:
+        '200':
+          description: List of session summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionSummaryDTO'
+      security:
+        - basicAuth: []
+
+  /forensics/query/sessions/{sessionId}/report:
+    get:
+      tags: [Forensic Query]
+      summary: Get full replay report
+      description: Returns the complete replay report for a session.
+      parameters:
+        - $ref: '#/components/parameters/sessionId'
+      responses:
+        '200':
+          description: Full replay report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayReport'
+      security:
+        - basicAuth: []
+
+  /forensics/query/sessions/{sessionId}/verify:
+    get:
+      tags: [Forensic Query]
+      summary: Verify session hash
+      description: |
+        Re-computes the session-level SHA-256 hash and compares to the
+        provided expected hash. Returns true if untampered.
+      parameters:
+        - $ref: '#/components/parameters/sessionId'
+        - name: hash
+          in: query
+          required: true
+          description: Expected SHA-256 hash (64 hex chars)
+          schema:
+            type: string
+            example: "a3f1c2d4e5b67890abcdef1234567890abcdef1234567890abcdef1234567890"
+      responses:
+        '200':
+          description: true = untampered, false = hash mismatch
+          content:
+            application/json:
+              schema:
+                type: boolean
+      security:
+        - basicAuth: []
+
+  /forensics/query/sessions/{sessionId}/verify-hashes:
+    get:
+      tags: [Forensic Query]
+      summary: Verify individual event hashes (AC-08)
+      description: |
+        Re-computes the canonical SHA-256 hash (PRD §10.3) for every event
+        in the session and compares to the stored hash.
+        Returns only tampered events — empty list means all events are clean.
+      parameters:
+        - $ref: '#/components/parameters/sessionId'
+      responses:
+        '200':
+          description: List of tampered events (empty = all clean)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VerificationResult'
+      security:
+        - basicAuth: []
+
+  # ── DASHBOARD ────────────────────────────────────────────────
+
+  /forensics/dashboard/sessions/{sessionId}/timeline:
+    get:
+      tags: [Dashboard]
+      summary: Session event timeline
+      description: |
+        Returns a chronological list of events annotated with event type,
+        decision (ALLOW/BLOCK/REVIEW), and the rule that matched.
+      parameters:
+        - $ref: '#/components/parameters/sessionId'
+      responses:
+        '200':
+          description: Ordered event timeline
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimelineEventDTO'
+      security:
+        - basicAuth: []
+
+  /forensics/dashboard/sessions/{sessionId}/policy-trace:
+    get:
+      tags: [Dashboard]
+      summary: Policy decision trace
+      description: |
+        Returns the full policy evaluation trace for a session:
+        rules evaluated, rules matched, final decision, and tamper-evident hash.
+      parameters:
+        - $ref: '#/components/parameters/sessionId'
+      responses:
+        '200':
+          description: Policy trace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyTraceDTO'
+      security:
+        - basicAuth: []
+
+  /forensics/dashboard/sessions/{sessionId}/alerts:
+    get:
+      tags: [Dashboard]
+      summary: Session alerts
+      description: |
+        Returns all BLOCK and REVIEW decision events as alerts with
+        severity levels (HIGH for BLOCK, MEDIUM for REVIEW).
+      parameters:
+        - $ref: '#/components/parameters/sessionId'
+      responses:
+        '200':
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertDTO'
+      security:
+        - basicAuth: []
+
+# ─────────────────────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────────────────────
+components:
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+  parameters:
+    sessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: UUID of the session
+      schema:
+        type: string
+        format: uuid
+        example: "cccccccc-0000-0000-0000-000000000003"
+
+  schemas:
+
+    PolicySnapshot:
+      type: object
+      description: A set of policy rules used for replay or simulation
+      properties:
+        rules:
+          type: array
+          items:
+            type: string
+          description: |
+            Rule tokens in format DECISION_CRITERION.
+            Examples: BLOCK_DELETE, ALLOW_GET, BLOCK_ATTACK, BLOCK_ALL
+          example: ["BLOCK_ATTACK", "BLOCK_DELETE", "ALLOW_GET"]
+
+    ReplayReport:
+      type: object
+      description: Full output of a replay or what-if simulation (FR-RE-04)
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/StepDecision'
+        originalDecisions:
+          type: array
+          items:
+            type: string
+            enum: [ALLOW, BLOCK, REVIEW]
+          description: Decision per step from the original frozen snapshot
+        simulatedDecisions:
+          type: array
+          items:
+            type: string
+            enum: [ALLOW, BLOCK, REVIEW]
+          description: Decision per step from the alternate (what-if) rules
+        firstDivergenceStep:
+          type: integer
+          description: |
+            1-based index of the first step where original and simulated
+            decisions differ. -1 means no divergence.
+          example: 2
+        snapshotIdUsed:
+          type: string
+          format: uuid
+          nullable: true
+        hash:
+          type: string
+          description: Canonical SHA-256 session hash (PRD §10.3)
+          example: "a3f1c2d4e5b67890abcdef1234567890abcdef1234567890abcdef1234567890"
+
+    StepDecision:
+      type: object
+      description: One step in a replay — one event with its decisions
+      properties:
+        event:
+          $ref: '#/components/schemas/EventDTO'
+        originalDecision:
+          type: string
+          enum: [ALLOW, BLOCK, REVIEW]
+        simulatedDecision:
+          type: string
+          enum: [ALLOW, BLOCK, REVIEW]
+        ruleMatched:
+          type: string
+          nullable: true
+          example: "BLOCK_DELETE"
+        diverged:
+          type: boolean
+          description: True if originalDecision != simulatedDecision
+
+    EventDTO:
+      type: object
+      description: A security event (PRD §8.1 / §10.3 canonical fields)
+      properties:
+        eventId:        { type: string, format: uuid }
+        sessionId:      { type: string, format: uuid }
+        timestampNs:    { type: integer, format: int64, example: 1707825800300000000 }
+        eventType:      { type: string, enum: [LOGIN, LOGOUT, ACCESS, ATTACK] }
+        userId:         { type: string, nullable: true, example: "user-001" }
+        endpoint:       { type: string, example: "/api/payments/txn-9921" }
+        httpMethod:     { type: string, enum: [GET, POST, PUT, DELETE, PATCH] }
+        decision:       { type: string, enum: [ALLOW, BLOCK, REVIEW], nullable: true }
+        policyRuleId:   { type: string, nullable: true, example: "BLOCK_DELETE" }
+        policyRuleVersion: { type: integer, nullable: true, example: 1 }
+        policyRuleSnapshotId: { type: string, format: uuid, nullable: true }
+        riskScore:      { type: number, format: float, minimum: 0.0, maximum: 1.0, example: 0.85 }
+        bodyHash:       { type: string, nullable: true }
+        gatewayVersion: { type: string, example: "1.0.0" }
+
+    SessionSummaryDTO:
+      type: object
+      properties:
+        sessionId:         { type: string, format: uuid }
+        startTimestampNs:  { type: integer, format: int64 }
+        endTimestampNs:    { type: integer, format: int64 }
+        eventCount:        { type: integer, example: 6 }
+        hash:              { type: string }
+
+    TimelineEventDTO:
+      type: object
+      properties:
+        sessionId:    { type: string, format: uuid }
+        timestampNs:  { type: integer, format: int64 }
+        eventType:    { type: string, enum: [LOGIN, LOGOUT, ACCESS, ATTACK] }
+        decision:     { type: string, enum: [ALLOW, BLOCK, REVIEW] }
+        ruleMatched:  { type: string, nullable: true }
+
+    PolicyTraceDTO:
+      type: object
+      properties:
+        sessionId:       { type: string, format: uuid }
+        rulesEvaluated:  { type: array, items: { type: string } }
+        rulesMatched:    { type: array, items: { type: string } }
+        finalDecision:   { type: string, enum: [ALLOW, BLOCK, REVIEW] }
+        hash:            { type: string }
+
+    AlertDTO:
+      type: object
+      properties:
+        sessionId:        { type: string, format: uuid }
+        timestampNs:      { type: integer, format: int64 }
+        triggerEventType: { type: string, enum: [LOGIN, LOGOUT, ACCESS, ATTACK] }
+        severity:         { type: string, enum: [LOW, MEDIUM, HIGH, CRITICAL] }
+        message:          { type: string, example: "Event blocked by policy: BLOCK_DELETE" }
+
+    VerificationResult:
+      type: object
+      description: Result of per-event SHA-256 hash verification (AC-08)
+      properties:
+        eventId:        { type: string, format: uuid }
+        tampered:       { type: boolean }
+        storedHash:     { type: string }
+        recomputedHash: { type: string }
