@@ -1,62 +1,60 @@
 package com.sentinel.shared.dto;
 
+import com.sentinel.shared.enums.Decision;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Full output of a replay or what-if simulation.
- * PRD FR-RE-04: step-by-step trace, original vs simulated decisions,
- * first divergence point, and snapshot ID used.
+ * Replay report produced by the Forensic Replay Engine.
+ * Used by the Dashboard to display original vs. simulated outcomes.
  */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class ReplayReport {
 
-    private UUID sessionId;
-
-    /** All steps in chronological order. Each step holds original + simulated decision. */
+    /** Ordered list of replay steps. */
     private List<StepDecision> steps;
 
-    /** Original decisions in order (ALLOW/BLOCK per step). */
-    private List<String> originalDecisions;
+    /** Original decisions for each step. */
+    private List<Decision> originalDecisions;
 
-    /** Simulated decisions using alternate rules (ALLOW/BLOCK per step). */
-    private List<String> simulatedDecisions;
+    /** Simulated decisions for each step (with modified rules). */
+    private List<Decision> simulatedDecisions;
 
-    /**
-     * 1-based index of the first step where original and simulated decisions diverge.
-     * -1 means no divergence (same outcome throughout).
-     */
-    private int firstDivergenceStep = -1;
+    /** Index of the first step where original and simulated outcomes diverge. */
+    private Integer firstDivergenceStep;
 
-    /** The frozen policy snapshot ID used for this replay (PRD FR-RE-02). */
+    /** Snapshot ID used for the replay. */
     private UUID snapshotIdUsed;
 
-    /** Tamper-evident SHA-256 hash of all events + snapshot (PRD §10.3). */
+    /** The ID of the session. */
+    private UUID sessionId;
+
+    /** Computed hash of the replay report. */
     private String hash;
 
-    public UUID getSessionId() { return sessionId; }
-    public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
-
-    public List<StepDecision> getSteps() { return steps; }
-    public void setSteps(List<StepDecision> steps) { this.steps = steps; }
-
-    public List<String> getOriginalDecisions() { return originalDecisions; }
-    public void setOriginalDecisions(List<String> originalDecisions) {
-        this.originalDecisions = originalDecisions;
+    /**
+     * Represents a single step in the replay.
+     */
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class StepDecision {
+        private UUID eventId;
+        private Long timestampNs;
+        private String eventType;
+        private String endpoint;
+        private String httpMethod;
+        private Decision originalDecision;
+        private Decision simulatedDecision;
+        private String ruleId;
+        private Double riskScore;
     }
-
-    public List<String> getSimulatedDecisions() { return simulatedDecisions; }
-    public void setSimulatedDecisions(List<String> simulatedDecisions) {
-        this.simulatedDecisions = simulatedDecisions;
-    }
-
-    public int getFirstDivergenceStep() { return firstDivergenceStep; }
-    public void setFirstDivergenceStep(int firstDivergenceStep) {
-        this.firstDivergenceStep = firstDivergenceStep;
-    }
-
-    public UUID getSnapshotIdUsed() { return snapshotIdUsed; }
-    public void setSnapshotIdUsed(UUID snapshotIdUsed) { this.snapshotIdUsed = snapshotIdUsed; }
-
-    public String getHash() { return hash; }
-    public void setHash(String hash) { this.hash = hash; }
 }
