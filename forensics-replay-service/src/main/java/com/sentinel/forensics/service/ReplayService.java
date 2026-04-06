@@ -27,7 +27,7 @@ public class ReplayService {
         com.sentinel.shared.dto.PolicySnapshot originalSnapshot = buildPolicySnapshot(events);
         ReplayReport report = whatIfSimulationEngine.simulate(
                 sessionId, events, originalSnapshot, alternateSnapshot);
-        report.setHash(ReplayHashUtil.computeSessionHash(events, alternateSnapshot));
+        report.setReportHash(ReplayHashUtil.computeSessionHash(events, alternateSnapshot));
         return report;
     }
 
@@ -37,18 +37,15 @@ public class ReplayService {
         com.sentinel.shared.dto.PolicySnapshot snapshot = buildPolicySnapshot(events);
         List<StepDecision> steps = replayEngine.reconstruct(events, snapshot);
 
-        // Extract originalDecisions list from steps
-        List<String> originalDecisions = steps.stream()
-                .map(StepDecision::getOriginalDecision)
-                .collect(java.util.stream.Collectors.toList());
+        // Count divergences in steps
+        long divergences = steps.stream().filter(StepDecision::isDiverged).count();
 
         ReplayReport report = new ReplayReport();
         report.setSessionId(sessionId);
         report.setSteps(steps);
-        report.setOriginalDecisions(originalDecisions);
-        report.setSimulatedDecisions(originalDecisions); // same as original in straight replay
-        report.setFirstDivergenceStep(-1);               // no divergence in straight replay
-        report.setHash(ReplayHashUtil.computeSessionHash(events, snapshot));
+        report.setTotalEvents(events.size());
+        report.setDivergenceCount(Math.toIntExact(divergences));
+        report.setReportHash(ReplayHashUtil.computeSessionHash(events, snapshot));
         return report;
     }
 

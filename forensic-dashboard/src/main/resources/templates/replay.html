@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html class="dark" lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="layout :: ~{
+    *, main/(@content)
+}">
+<head>
+    <title>Replay Engine - NYXSEC</title>
+</head>
+<body>
+<div th:def="content">
+    <!-- Header Section -->
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h2 class="text-3xl font-extrabold tracking-tight text-on-surface">Replay Engine</h2>
+            <p class="text-on-surface-variant text-sm mt-1">Reproduce and analyze past security events</p>
+        </div>
+        <div class="flex gap-2">
+            <button class="px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Start Replay</button>
+        </div>
+    </div>
+
+    <!-- Session Selection -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+        <div class="lg:col-span-3 bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Select Session to Replay</h3>
+            <select class="w-full bg-surface-container-highest border border-outline-variant/10 rounded-lg px-4 py-3 text-on-surface">
+                <option>SID-8829-X-2026 (142 events, 14m 22s)</option>
+                <option>SID-7234-M8 (88 events, 8m 45s)</option>
+                <option>SID-4412-B2 (56 events, 5m 12s)</option>
+                <option>SID-0091-R4 (12 events, 1m 34s)</option>
+            </select>
+        </div>
+        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Speed</h3>
+            <div class="flex gap-2">
+                <button class="flex-1 px-2 py-2 bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant rounded text-xs hover:bg-surface-container-high">1x</button>
+                <button class="flex-1 px-2 py-2 bg-primary text-on-primary rounded text-xs">2x</button>
+                <button class="flex-1 px-2 py-2 bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant rounded text-xs hover:bg-surface-container-high">4x</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Replay Timeline -->
+    <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 mb-8">
+        <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-6">Replay Timeline</h3>
+        <div class="space-y-4">
+            <!-- Timeline Progress -->
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-on-surface-variant">00:00 / 14:22</span>
+                    <span class="text-xs text-primary font-bold">0% Complete</span>
+                </div>
+                <div class="w-full h-1 bg-surface-container-highest rounded-full overflow-hidden">
+                    <div class="h-full bg-primary rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="flex items-center justify-center gap-4 py-4">
+                <button class="p-2 hover:bg-surface-container-high rounded transition-all">
+                    <span class="material-symbols-outlined text-xl">skip_previous</span>
+                </button>
+                <button class="p-3 bg-primary text-on-primary rounded hover:bg-primary/90 transition-all">
+                    <span class="material-symbols-outlined text-2xl">play_arrow</span>
+                </button>
+                <button class="p-2 hover:bg-surface-container-high rounded transition-all">
+                    <span class="material-symbols-outlined text-xl">skip_next</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
+            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Session ID</p>
+            <h3 class="text-lg font-bold text-on-surface font-mono">SID-8829-X-2026</h3>
+        </div>
+        <div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
+            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Duration</p>
+            <h3 class="text-lg font-bold text-on-surface">00:14:22</h3>
+        </div>
+        <div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
+            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Total Events</p>
+            <h3 class="text-lg font-bold text-on-surface">1,024</h3>
+        </div>
+        <div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
+            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Risk Score</p>
+            <h3 class="text-lg font-bold text-error">88</h3>
+        </div>
+    </div>
+
+    <!-- Event Stream -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Current Event -->
+        <div class="lg:col-span-2 bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Current Event</h3>
+            <div class="bg-surface-container-highest p-4 rounded mb-4">
+                <div class="flex items-start justify-between mb-3">
+                    <h4 class="font-semibold text-on-surface">Awaiting Replay Start</h4>
+                    <span class="text-xs text-on-surface-variant">--:--:--</span>
+                </div>
+                <p class="text-xs text-on-surface-variant">Click "Start Replay" above to begin playback</p>
+            </div>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-on-surface-variant">Endpoint:</span>
+                    <span class="text-on-surface font-mono">--</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-on-surface-variant">Method:</span>
+                    <span class="text-on-surface font-mono">--</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-on-surface-variant">Status:</span>
+                    <span class="text-on-surface">--</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-on-surface-variant">Result:</span>
+                    <span class="text-on-surface">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Queue -->
+        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Event Queue</h3>
+            <div class="space-y-2 max-h-80 overflow-y-auto">
+                <div class="p-2 bg-surface-container-highest rounded text-xs border-l-2 border-primary">
+                    <p class="text-on-surface font-semibold">Next: Auth Check</p>
+                    <p class="text-on-surface-variant text-[10px]">00:00:01</p>
+                </div>
+                <div class="p-2 bg-surface-container-highest rounded text-xs">
+                    <p class="text-on-surface-variant">DB Query</p>
+                    <p class="text-on-surface-variant text-[10px]">00:00:03</p>
+                </div>
+                <div class="p-2 bg-surface-container-highest rounded text-xs">
+                    <p class="text-on-surface-variant">Policy Check</p>
+                    <p class="text-on-surface-variant text-[10px]">00:00:05</p>
+                </div>
+                <div class="p-2 bg-surface-container-highest rounded text-xs">
+                    <p class="text-on-surface-variant">Response Sent</p>
+                    <p class="text-on-surface-variant text-[10px]">00:00:06</p>
+                </div>
+                <div class="p-2 bg-surface-container-highest rounded text-xs">
+                    <p class="text-on-surface-variant">+ 1020 more events</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

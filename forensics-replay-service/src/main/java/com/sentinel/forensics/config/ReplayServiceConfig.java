@@ -34,8 +34,8 @@ public class ReplayServiceConfig {
     }
 
     @Bean
-    public WhatIfSimulationEngine whatIfSimulationEngine() {
-        return new WhatIfSimulationEngine();
+    public WhatIfSimulationEngine whatIfSimulationEngine(ReplayEngine replayEngine) {
+        return new WhatIfSimulationEngine(replayEngine);
     }
 
     @Bean

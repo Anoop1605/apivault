@@ -1,70 +1,159 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html class="dark" lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="layout :: ~{
+    *, main/(@content)
+}">
 <head>
-    <meta charset="UTF-8"/>
-    <title>Sentinel — Policy Trace</title>
-    <style>
-        body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 24px; }
-        h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
-        nav { margin-bottom: 20px; }
-        nav a { color: #58a6ff; margin-right: 16px; text-decoration: none; }
-        nav a:hover { text-decoration: underline; }
-        .session-id { color: #8b949e; font-size: 13px; margin-bottom: 16px; }
-        .error { color: #f85149; background: #1c0a0a; padding: 10px; border-radius: 4px; margin: 12px 0; }
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin-bottom: 16px; }
-        .card h3 { margin: 0 0 12px 0; color: #58a6ff; font-size: 14px; }
-        .label { color: #8b949e; font-size: 12px; text-transform: uppercase; margin-bottom: 4px; }
-        .value { font-size: 14px; margin-bottom: 12px; }
-        .allow  { color: #3fb950; font-weight: bold; }
-        .block  { color: #f85149; font-weight: bold; }
-        .review { color: #d29922; font-weight: bold; }
-        .rule-tag { display: inline-block; background: #1f3a5f; color: #58a6ff; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin: 2px; }
-        .rule-matched { background: #1a3a1f; color: #3fb950; }
-        .hash { font-size: 11px; color: #8b949e; word-break: break-all; }
-        .back { color: #58a6ff; text-decoration: none; font-size: 13px; }
-    </style>
+    <title>Policy Trace - NYXSEC</title>
 </head>
 <body>
-<nav>
-    <a href="/dashboard">Sessions</a>
-    <a href="/dashboard/alerts">Alerts</a>
-</nav>
-<h1>Policy Decision Trace</h1>
-<div class="session-id">Session: <span th:text="${sessionId}">-</span></div>
-<a class="back" th:href="@{/dashboard/sessions/{id}/timeline(id=${sessionId})}">&larr; Back to timeline</a>
-
-<div th:if="${error}" class="error" th:text="${error}"></div>
-
-<div th:unless="${#maps.isEmpty(trace)}" style="margin-top: 16px;">
-    <div class="card">
-        <h3>Final Decision</h3>
-        <div class="label">Outcome</div>
-        <div class="value">
-            <span th:if="${trace['finalDecision'] == 'ALLOW'}"  class="allow">ALLOW</span>
-            <span th:if="${trace['finalDecision'] == 'BLOCK'}"  class="block">BLOCK</span>
-            <span th:if="${trace['finalDecision'] == 'REVIEW'}" class="review">REVIEW</span>
+<div th:def="content">
+    <!-- Header Section -->
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h2 class="text-3xl font-extrabold tracking-tight text-on-surface">Policy Trace</h2>
+            <p class="text-on-surface-variant text-sm mt-1">Deep dive into policy decision logic and execution</p>
         </div>
-        <div class="label">Tamper-Evident Hash</div>
-        <div class="hash" th:text="${trace['hash'] != null ? trace['hash'] : '-'}">-</div>
+        <div class="flex gap-2">
+            <button class="px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Export Trace</button>
+        </div>
     </div>
 
-    <div class="card">
-        <h3>Rules Evaluated</h3>
-        <span th:each="rule : ${trace['rulesEvaluated']}"
-              class="rule-tag" th:text="${rule}">RULE</span>
-        <div th:if="${#lists.isEmpty(trace['rulesEvaluated'])}" style="color:#8b949e;">None</div>
+    <!-- Decision Summary -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="lg:col-span-2 bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Decision Summary</h3>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between pb-4 border-b border-outline-variant/5">
+                    <span class="text-on-surface-variant text-sm">Final Outcome</span>
+                    <span class="px-3 py-1 bg-error/10 text-error rounded-full text-sm font-bold uppercase">DENY</span>
+                </div>
+                <div class="flex items-center justify-between pb-4 border-b border-outline-variant/5">
+                    <span class="text-on-surface-variant text-sm">Rule ID</span>
+                    <span class="text-on-surface font-mono text-sm font-bold">POL-9928-XR</span>
+                </div>
+                <div class="flex items-center justify-between pb-4 border-b border-outline-variant/5">
+                    <span class="text-on-surface-variant text-sm">Subject</span>
+                    <span class="text-on-surface text-sm">Marcus Holloway</span>
+                </div>
+                <div class="flex items-center justify-between pb-4 border-b border-outline-variant/5">
+                    <span class="text-on-surface-variant text-sm">Endpoint</span>
+                    <span class="text-on-surface font-mono text-sm">/api/admin/users</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-on-surface-variant text-sm">Decision Time</span>
+                    <span class="text-on-surface text-sm">2024-04-06 14:22:11 UTC</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Request Context</h3>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <p class="text-on-surface-variant uppercase tracking-wider mb-1">IP Address</p>
+                    <p class="text-on-surface font-mono">192.168.1.104</p>
+                </div>
+                <div>
+                    <p class="text-on-surface-variant uppercase tracking-wider mb-1">User Agent</p>
+                    <p class="text-on-surface font-mono text-xs truncate">Mozilla/5.0 Chrome</p>
+                </div>
+                <div>
+                    <p class="text-on-surface-variant uppercase tracking-wider mb-1">Session ID</p>
+                    <p class="text-on-surface font-mono text-xs">sess_8f2a...</p>
+                </div>
+                <div>
+                    <p class="text-on-surface-variant uppercase tracking-wider mb-1">Auth Method</p>
+                    <p class="text-on-surface">Bearer Token</p>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="card">
-        <h3>Rules Matched</h3>
-        <span th:each="rule : ${trace['rulesMatched']}"
-              class="rule-tag rule-matched" th:text="${rule}">RULE</span>
-        <div th:if="${#lists.isEmpty(trace['rulesMatched'])}" style="color:#8b949e;">No rules matched</div>
-    </div>
-</div>
+    <!-- Policy Conditions -->
+    <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 mb-8">
+        <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-6">Policy Evaluation Steps</h3>
+        <div class="space-y-4">
+            <!-- Step 1 -->
+            <div class="border-l-4 border-secondary pl-4 pb-4">
+                <div class="flex items-start justify-between mb-2">
+                    <h4 class="font-semibold text-on-surface">Step 1: IP Whitelist Check</h4>
+                    <span class="px-2 py-1 bg-secondary/10 text-secondary rounded text-xs font-bold">PASS</span>
+                </div>
+                <p class="text-xs text-on-surface-variant">IP 192.168.1.104 is in approved corporate network range</p>
+            </div>
 
-<div class="card" th:if="${#maps.isEmpty(trace)}" style="color:#8b949e; text-align:center;">
-    No policy trace available for this session.
+            <!-- Step 2 -->
+            <div class="border-l-4 border-secondary pl-4 pb-4">
+                <div class="flex items-start justify-between mb-2">
+                    <h4 class="font-semibold text-on-surface">Step 2: Role-Based Access Control</h4>
+                    <span class="px-2 py-1 bg-secondary/10 text-secondary rounded text-xs font-bold">PASS</span>
+                </div>
+                <p class="text-xs text-on-surface-variant">User Marcus Holloway has role: UserManager</p>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="border-l-4 border-error pl-4 pb-4">
+                <div class="flex items-start justify-between mb-2">
+                    <h4 class="font-semibold text-on-surface">Step 3: Time-Based Access Policy</h4>
+                    <span class="px-2 py-1 bg-error/10 text-error rounded text-xs font-bold">FAIL</span>
+                </div>
+                <p class="text-xs text-on-surface-variant">Access to admin endpoints restricted to business hours (9AM-5PM EST). Current time: 2:22 PM local time is outside allowed window per policy POL-9928-XR</p>
+            </div>
+
+            <!-- Step 4 (Not evaluated) -->
+            <div class="border-l-4 border-outline/20 pl-4 pb-4 opacity-60">
+                <div class="flex items-start justify-between mb-2">
+                    <h4 class="font-semibold text-on-surface">Step 4: Behavioral Analysis</h4>
+                    <span class="px-2 py-1 bg-surface-container-high text-on-surface-variant rounded text-xs font-bold">SKIPPED</span>
+                </div>
+                <p class="text-xs text-on-surface-variant">Not evaluated - decision made at previous step</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Applied Rules -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Matched Rules</h3>
+            <div class="space-y-3">
+                <div class="p-3 bg-surface-container-high rounded border-l-3 border-error">
+                    <p class="text-sm font-semibold text-on-surface">Time-Based Restriction (POL-9928-XR)</p>
+                    <p class="text-xs text-on-surface-variant mt-1">Admin endpoints unavailable outside business hours</p>
+                    <p class="text-xs text-error font-bold mt-2">Result: DENY</p>
+                </div>
+                <div class="p-3 bg-surface-container-high rounded border-l-3 border-secondary">
+                    <p class="text-sm font-semibold text-on-surface">IP Whitelist (POL-8840-IP)</p>
+                    <p class="text-xs text-on-surface-variant mt-1">Only approved IPs can access admin panel</p>
+                    <p class="text-xs text-secondary font-bold mt-2">Result: PASS</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5">
+            <h3 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Audit Log</h3>
+            <div class="space-y-2 text-xs">
+                <div class="flex justify-between text-on-surface-variant">
+                    <span>14:22:11</span>
+                    <span>Policy evaluation started</span>
+                </div>
+                <div class="flex justify-between text-on-surface-variant">
+                    <span>14:22:11.234</span>
+                    <span>IP whitelist check passed</span>
+                </div>
+                <div class="flex justify-between text-on-surface-variant">
+                    <span>14:22:11.456</span>
+                    <span>RBAC check passed</span>
+                </div>
+                <div class="flex justify-between text-on-surface-variant">
+                    <span>14:22:11.678</span>
+                    <span>Time window check FAILED</span>
+                </div>
+                <div class="flex justify-between text-on-surface-variant">
+                    <span>14:22:11.890</span>
+                    <span>Decision: DENY - logged</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 </body>
 </html>

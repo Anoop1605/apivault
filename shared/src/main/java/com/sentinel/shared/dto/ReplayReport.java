@@ -5,12 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * Replay report produced by the Forensic Replay Engine.
- * Used by the Dashboard to display original vs. simulated outcomes.
+ * Contains step-by-step decision trace and tampering detection results.
  */
 @Data
 @Builder
@@ -18,43 +19,31 @@ import java.util.UUID;
 @NoArgsConstructor
 public class ReplayReport {
 
-    /** Ordered list of replay steps. */
-    private List<StepDecision> steps;
-
-    /** Original decisions for each step. */
-    private List<Decision> originalDecisions;
-
-    /** Simulated decisions for each step (with modified rules). */
-    private List<Decision> simulatedDecisions;
-
-    /** Index of the first step where original and simulated outcomes diverge. */
-    private Integer firstDivergenceStep;
-
-    /** Snapshot ID used for the replay. */
-    private UUID snapshotIdUsed;
-
-    /** The ID of the session. */
+    /** Session ID being replayed */
     private UUID sessionId;
 
-    /** Computed hash of the replay report. */
-    private String hash;
+    /** Total number of events in the session */
+    private Integer totalEvents;
 
-    /**
-     * Represents a single step in the replay.
-     */
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class StepDecision {
-        private UUID eventId;
-        private Long timestampNs;
-        private String eventType;
-        private String endpoint;
-        private String httpMethod;
-        private Decision originalDecision;
-        private Decision simulatedDecision;
-        private String ruleId;
-        private Double riskScore;
-    }
+    /** Number of divergences found between original and reconstructed decisions */
+    private Integer divergenceCount;
+
+    /** Whether tampering was detected in any events */
+    private Boolean tamperingDetected;
+
+    /** List of event IDs that were tampered with */
+    private List<String> tamperedEventIds;
+
+    /** Ordered list of replay steps showing original vs simulated decisions */
+    private List<StepDecision> steps;
+
+    /** Whether this is a simulation (true) or actual replay (false) */
+    private Boolean isSimulation;
+
+    /** Timestamp when report was generated */
+    private LocalDateTime generatedAt;
+
+    /** Computed hash of the replay report for integrity verification */
+    private String reportHash;
 }
+
