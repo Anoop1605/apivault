@@ -1,38 +1,31 @@
 package com.sentinel.shared.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
 import java.util.UUID;
 
+/**
+ * DTO for session summary data.
+ * Matches the sessions_summary table defined in PRD Section 8.4.
+ */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class SessionSummaryDTO {
 
     private UUID sessionId;
-    private long startTimestampNs;
-    private long endTimestampNs;
-    private int eventCount;
+    private Long firstSeenNs;
+    private Long lastSeenNs;
+    private Integer eventCount;
+    private Double maxRiskScore;
+    private Integer denyCount;
+    private String userId;
+    private Boolean flagged;
+    private List<String> endpointsAccessed;
     private String hash;
-
-    public SessionSummaryDTO() {}
-
-    public SessionSummaryDTO(UUID sessionId, long startTimestampNs, long endTimestampNs,
-                              int eventCount, String hash) {
-        this.sessionId = sessionId;
-        this.startTimestampNs = startTimestampNs;
-        this.endTimestampNs = endTimestampNs;
-        this.eventCount = eventCount;
-        this.hash = hash;
-    }
-
-    public UUID getSessionId() { return sessionId; }
-    public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
-
-    public long getStartTimestampNs() { return startTimestampNs; }
-    public void setStartTimestampNs(long startTimestampNs) { this.startTimestampNs = startTimestampNs; }
-
-    public long getEndTimestampNs() { return endTimestampNs; }
-    public void setEndTimestampNs(long endTimestampNs) { this.endTimestampNs = endTimestampNs; }
-
-    public int getEventCount() { return eventCount; }
-    public void setEventCount(int eventCount) { this.eventCount = eventCount; }
-
-    public String getHash() { return hash; }
-    public void setHash(String hash) { this.hash = hash; }
 }

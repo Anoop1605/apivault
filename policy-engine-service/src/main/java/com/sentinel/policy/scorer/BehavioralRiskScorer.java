@@ -102,6 +102,17 @@ public class BehavioralRiskScorer {
     // ────────────────────────────────────────────────────────────────
 
     /**
+     * Legacy method for backwards compatibility with older PolicyEngine.
+     * Uses double return to match the previous interface.
+     * 
+     * @param ctx the request context to score
+     * @return the overall risk score (0.0–1.0)
+     */
+    public double computeRiskScore(RequestContext ctx) {
+        return score(ctx).score();
+    }
+
+    /**
      * Evaluates a request against all risk signals and produces a combined score.
      *
      * Algorithm:

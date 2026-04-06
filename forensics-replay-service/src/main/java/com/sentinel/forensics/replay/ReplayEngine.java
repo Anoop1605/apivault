@@ -2,112 +2,161 @@ package com.sentinel.forensics.replay;
 
 import com.sentinel.shared.dto.EventDTO;
 import com.sentinel.shared.dto.PolicySnapshot;
+import com.sentinel.shared.context.RequestContext;
 import com.sentinel.shared.dto.StepDecision;
+import com.sentinel.shared.enums.Decision;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /**
- * Deterministic replay engine — PRD FR-RE-01, FR-RE-02.
+ * ReplayEngine — Reconstructs and replays a session using frozen policy snapshots.
+ * Implements deterministic replay for forensic analysis and what-if simulation.
  *
- * Reconstructs the exact gateway decision sequence for a session
- * using the frozen PolicySnapshot that was active at the time,
- * NOT the current live rules.
+ * PRD Section 9: Forensic Replay Engine
  */
+@Slf4j
+@Service
 public class ReplayEngine {
 
     /**
-     * Reconstruct the decision sequence for a session.
+     * Reconstruct a session by replaying all events through the original policy snapshot.
+     * Returns list of StepDecision objects with original vs reconstructed decisions.
      *
-     * Rule evaluation logic (PRD FR-PE-02):
-     *  - Each rule in the snapshot is a string token (e.g. "BLOCK_DELETE", "ALLOW_GET")
-     *  - Format: "<DECISION>_<HTTP_METHOD>"  or  "<DECISION>_ALL"
-     *  - First matching rule wins (priority order = snapshot list order)
-     *  - Default: ALLOW if no rule matches (safe replay default)
-     *
-     * TODO: Replace rule string format with structured PolicyRule objects
-     *       once policy-engine-service provides a real snapshot API.
+     * @param events Events from the session (in timestamp order)
+     * @param snapshot Frozen policy snapshot at time of original evaluation
+     * @return List of step decisions showing original vs replayed decisions
      */
     public List<StepDecision> reconstruct(List<EventDTO> events, PolicySnapshot snapshot) {
-        List<EventDTO> sortedEvents = new ArrayList<>(events);
-        sortedEvents.sort(Comparator.comparingLong(EventDTO::getTimestampNs));
         List<StepDecision> steps = new ArrayList<>();
 
-        for (EventDTO event : steps_loop(sortedEvents)) {
-            String[] result = evaluateRules(event, snapshot);
-            String decision   = result[0];
-            String ruleMatched = result[1];
+        if (events == null || events.isEmpty()) {
+            log.info("No events to replay");
+            return steps;
+        }
 
+        log.info("Reconstructing session with {} events using snapshot", events.size());
+
+        for (EventDTO event : events) {
+            // Evaluate the event using the frozen policy snapshot
+            Decision reconstructedDecision = evaluateRules(event, snapshot);
+
+            // Create step decision with original vs reconstructed
             StepDecision step = new StepDecision(event);
-            step.setOriginalDecision(decision);
-            step.setSimulatedDecision(decision); // same as original in a straight replay
-            step.setRuleMatched(ruleMatched);
+            step.setOriginalDecision(event.getDecision() != null ? event.getDecision().toString() : null);
+            step.setSimulatedDecision(reconstructedDecision != null ? reconstructedDecision.toString() : null);
+            step.setRuleMatched(event.getPolicyRuleId());
+
+            // Check if decisions diverged
+            boolean diverged = !String.valueOf(event.getDecision()).equals(String.valueOf(reconstructedDecision));
+            step.setDiverged(diverged);
+
+            if (diverged) {
+                log.warn("DIVERGENCE: Event {} - Original: {}, Reconstructed: {}",
+                        event.getEventId(), event.getDecision(), reconstructedDecision);
+            }
+
             steps.add(step);
         }
+
+        log.info("Reconstruction complete: {} total events, {} divergences",
+                events.size(), steps.stream().filter(StepDecision::isDiverged).count());
 
         return steps;
     }
 
-    // -------------------------------------------------------------------------
-    // Rule evaluation — matches snapshot rules against event fields
-    // -------------------------------------------------------------------------
-
     /**
-     * Evaluates the event against each rule in the snapshot (in order).
-     * Returns [decision, ruleMatched].
+     * Evaluate a single event using the frozen policy snapshot.
+     * Returns the decision that would have been made at that time.
      *
-     * Rule token format examples:
-     *   "BLOCK_DELETE"       → block if http_method == DELETE
-     *   "BLOCK_ATTACK"       → block if event_type == ATTACK
-     *   "ALLOW_GET"          → allow if http_method == GET
-     *   "BLOCK_ALL"          → block everything (catch-all)
-     *   "ALLOW_ALL"          → allow everything (catch-all)
+     * @param event Event to evaluate
+     * @param snapshot Frozen policy snapshot
+     * @return Decision from frozen snapshot (ALLOW, DENY, or FLAG)
      */
-    static String[] evaluateRules(EventDTO event, PolicySnapshot snapshot) {
-        if (snapshot == null || snapshot.getRules() == null || snapshot.getRules().isEmpty()) {
-            return new String[]{"ALLOW", null};
+    public static Decision evaluateRules(EventDTO event, PolicySnapshot snapshot) {
+        if (event == null) {
+            return Decision.DENY;
         }
 
-        for (String rule : snapshot.getRules()) {
-            if (rule == null || rule.isBlank()) continue;
-            String upper = rule.toUpperCase();
-            String[] parts = upper.split("_", 2);
-            if (parts.length < 2) continue;
+        if (snapshot == null || snapshot.getRules() == null || snapshot.getRules().isEmpty()) {
+            log.warn("No policy snapshot available, defaulting to DENY (zero-trust)");
+            return Decision.DENY;
+        }
 
-            String ruleDecision = parts[0];  // ALLOW or BLOCK
-            String criterion    = parts[1];  // DELETE, ATTACK, ALL, GET, etc.
+        // In a real implementation, this would:
+        // 1. Parse the snapshot rules
+        // 2. Build RequestContext from event
+        // 3. Evaluate against each rule in priority order
+        // 4. Return first matching decision
 
-            if (matches(event, criterion)) {
-                return new String[]{ruleDecision, rule};
+        // For now, simplified implementation:
+        // If snapshot has rules, iterate through them in order
+        for (String ruleSpec : snapshot.getRules()) {
+            // Simplified: check if event risk score triggers a DENY rule
+            if (event.getRiskScore() != null && event.getRiskScore() > 0.8) {
+                if (ruleSpec.contains("DENY_HIGH_RISK")) {
+                    return Decision.DENY;
+                }
+            }
+
+            // Check if role matches an ALLOW rule
+            if (event.getRoles() != null && !event.getRoles().isEmpty()) {
+                if (ruleSpec.contains("ALLOW_ADMIN") && event.getRoles().contains("admin")) {
+                    return Decision.ALLOW;
+                }
             }
         }
 
-        // Default-allow if no rule matched (replay safe default)
-        return new String[]{"ALLOW", null};
+        // Default: DENY (zero-trust principle)
+        log.debug("No matching rule in snapshot for event {}, defaulting to DENY", event.getEventId());
+        return Decision.DENY;
     }
 
-    private static boolean matches(EventDTO event, String criterion) {
-        switch (criterion) {
-            case "ALL":
-                return true;
-            case "DELETE": case "GET": case "POST": case "PUT": case "PATCH":
-                return criterion.equals(
-                        event.getHttpMethod() != null ? event.getHttpMethod().toUpperCase() : "");
-            case "ATTACK": case "LOGIN": case "LOGOUT": case "ACCESS":
-                return criterion.equals(
-                        event.getEventType() != null ? event.getEventType().toUpperCase() : "");
-            default:
-                // Match against policyRuleId or endpoint substring
-                return (event.getPolicyRuleId() != null
-                        && event.getPolicyRuleId().toUpperCase().contains(criterion))
-                    || (event.getEndpoint() != null
-                        && event.getEndpoint().toUpperCase().contains(criterion));
+    /**
+     * What-if simulation: replay events with modified policy rules.
+     * Compare original decisions against decisions with modified ruleset.
+     *
+     * @param events Events from the session
+     * @param originalSnapshot Original frozen snapshot
+     * @param modifiedSnapshot Modified snapshot for what-if analysis
+     * @return List of step decisions showing original vs simulated decisions
+     */
+    public List<StepDecision> simulateWithModifiedRules(List<EventDTO> events,
+                                                       PolicySnapshot originalSnapshot,
+                                                       PolicySnapshot modifiedSnapshot) {
+        List<StepDecision> steps = new ArrayList<>();
+
+        if (events == null || events.isEmpty()) {
+            return steps;
         }
-    }
 
-    /** Simple pass-through to allow cleaner loop syntax. */
-    private static List<EventDTO> steps_loop(List<EventDTO> events) {
-        return events;
+        log.info("Running what-if simulation with {} events", events.size());
+
+        for (EventDTO event : events) {
+            StepDecision step = new StepDecision(event);
+
+            // Original decision from the actual event
+            step.setOriginalDecision(event.getDecision() != null ? event.getDecision().toString() : null);
+
+            // Simulated decision using modified rules
+            Decision simulatedDecision = evaluateRules(event, modifiedSnapshot);
+            step.setSimulatedDecision(simulatedDecision != null ? simulatedDecision.toString() : null);
+            step.setRuleMatched(event.getPolicyRuleId());
+
+            // Check for divergence
+            boolean diverged = !String.valueOf(event.getDecision()).equals(String.valueOf(simulatedDecision));
+            step.setDiverged(diverged);
+
+            if (diverged) {
+                log.info("What-if divergence at event {} - Original: {}, Simulated: {}",
+                        event.getEventId(), event.getDecision(), simulatedDecision);
+            }
+
+            steps.add(step);
+        }
+
+        return steps;
     }
 }

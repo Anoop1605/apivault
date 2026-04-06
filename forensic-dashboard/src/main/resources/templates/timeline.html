@@ -1,66 +1,209 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html class="dark" lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="layout :: ~{
+    *, main/(@content)
+}">
 <head>
-    <meta charset="UTF-8"/>
-    <title>Sentinel — Event Timeline</title>
-    <style>
-        body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 24px; }
-        h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
-        nav { margin-bottom: 20px; }
-        nav a { color: #58a6ff; margin-right: 16px; text-decoration: none; }
-        nav a:hover { text-decoration: underline; }
-        .session-id { color: #8b949e; font-size: 13px; margin-bottom: 16px; }
-        .error { color: #f85149; background: #1c0a0a; padding: 10px; border-radius: 4px; margin: 12px 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th { background: #161b22; color: #8b949e; text-align: left; padding: 10px 12px; font-size: 12px; text-transform: uppercase; }
-        td { padding: 10px 12px; border-bottom: 1px solid #21262d; font-size: 13px; }
-        tr:hover td { background: #161b22; }
-        .allow  { color: #3fb950; font-weight: bold; }
-        .block  { color: #f85149; font-weight: bold; }
-        .review { color: #d29922; font-weight: bold; }
-        .empty  { color: #8b949e; text-align: center; padding: 48px; }
-        .back   { color: #58a6ff; text-decoration: none; font-size: 13px; }
-    </style>
+    <title>Event Timeline - NYXSEC</title>
 </head>
 <body>
-<nav>
-    <a href="/dashboard">Sessions</a>
-    <a href="/dashboard/alerts">Alerts</a>
-</nav>
-<h1>Event Timeline</h1>
-<div class="session-id">Session: <span th:text="${sessionId}">-</span></div>
-<a class="back" href="/dashboard">&larr; Back to sessions</a>
+<div th:def="content">
+    <!-- Header Section -->
+    <div class="flex justify-between items-end mb-8">
+        <div>
+            <h2 class="text-3xl font-extrabold tracking-tight text-on-surface">Event Timeline</h2>
+            <p class="text-on-surface-variant text-sm mt-1">Real-time event sequence and policy decisions</p>
+        </div>
+        <div class="flex gap-2">
+            <span class="px-3 py-1 bg-surface-container rounded-full text-[10px] font-bold text-on-surface-variant uppercase tracking-widest border border-outline-variant/5">Last 24 Hours</span>
+        </div>
+    </div>
 
-<div th:if="${error}" class="error" th:text="${error}"></div>
+    <!-- Filter/Controls Section -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
+            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Event Type</p>
+            <select class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm focus:ring-1 focus:ring-primary">
+                <option>All Events</option>
+                <option>Auth Events</option>
+                <option>Access Events</option>
+                <option>Policy Events</option>
+            </select>
+        </div>
+        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
+            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Decision</p>
+            <select class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm focus:ring-1 focus:ring-primary">
+                <option>All Decisions</option>
+                <option>Allow</option>
+                <option>Deny</option>
+                <option>Challenge</option>
+            </select>
+        </div>
+        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
+            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Risk Level</p>
+            <select class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm focus:ring-1 focus:ring-primary">
+                <option>All Levels</option>
+                <option>Critical</option>
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+            </select>
+        </div>
+        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
+            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Search</p>
+            <input class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm focus:ring-1 focus:ring-primary" placeholder="Search endpoint..." type="text"/>
+        </div>
+    </div>
 
-<table th:unless="${#lists.isEmpty(timeline)}">
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Timestamp (ns)</th>
-            <th>Event Type</th>
-            <th>Decision</th>
-            <th>Rule Matched</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr th:each="step, iter : ${timeline}">
-            <td th:text="${iter.count}">1</td>
-            <td th:text="${step['timestampNs']}">-</td>
-            <td th:text="${step['eventType']}">-</td>
-            <td>
-                <span th:if="${step['decision'] == 'ALLOW'}"  class="allow"  th:text="${step['decision']}">ALLOW</span>
-                <span th:if="${step['decision'] == 'BLOCK'}"  class="block"  th:text="${step['decision']}">BLOCK</span>
-                <span th:if="${step['decision'] == 'REVIEW'}" class="review" th:text="${step['decision']}">REVIEW</span>
-                <span th:if="${step['decision'] == null}">-</span>
-            </td>
-            <td th:text="${step['ruleMatched'] != null ? step['ruleMatched'] : '-'}">-</td>
-        </tr>
-    </tbody>
-</table>
+    <!-- Timeline Events -->
+    <div class="bg-surface-container rounded-xl overflow-hidden">
+        <div class="border-b border-outline-variant/10 p-4">
+            <p class="text-sm font-bold uppercase tracking-widest text-on-surface-variant">Event Log</p>
+        </div>
+        <div class="divide-y divide-outline-variant/5 max-h-[600px] overflow-y-auto">
+            <!-- Sample Events -->
+            <div class="p-6 hover:bg-surface-container-high transition-colors group">
+                <div class="flex items-start gap-4">
+                    <div class="w-2 h-2 rounded-full bg-error mt-2.5 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-on-surface">SQL Injection Attempt</h4>
+                            <span class="text-[10px] font-bold text-error uppercase">DENY</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-xs mb-2">
+                            <div><span class="text-on-surface-variant">Endpoint:</span> <span class="text-on-surface font-mono">/api/search</span></div>
+                            <div><span class="text-on-surface-variant">Time:</span> <span class="text-on-surface">14:22:11</span></div>
+                            <div><span class="text-on-surface-variant">Risk Score:</span> <span class="font-bold text-error">100</span></div>
+                        </div>
+                        <p class="text-xs text-on-surface-variant">Malicious query detected in search parameter. Request blocked.</p>
+                    </div>
+                </div>
+            </div>
 
-<div class="empty" th:if="${#lists.isEmpty(timeline)}">
-    No events found for this session.
+            <div class="p-6 hover:bg-surface-container-high transition-colors group">
+                <div class="flex items-start gap-4">
+                    <div class="w-2 h-2 rounded-full bg-secondary mt-2.5 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-on-surface">Standard Login</h4>
+                            <span class="text-[10px] font-bold text-secondary uppercase">ALLOW</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-xs mb-2">
+                            <div><span class="text-on-surface-variant">Endpoint:</span> <span class="text-on-surface font-mono">/auth/login</span></div>
+                            <div><span class="text-on-surface-variant">Time:</span> <span class="text-on-surface">14:20:02</span></div>
+                            <div><span class="text-on-surface-variant">Risk Score:</span> <span class="font-bold text-secondary">12</span></div>
+                        </div>
+                        <p class="text-xs text-on-surface-variant">Successful authentication from known IP. Request allowed.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 hover:bg-surface-container-high transition-colors group">
+                <div class="flex items-start gap-4">
+                    <div class="w-2 h-2 rounded-full bg-error mt-2.5 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-on-surface">Auth Bypass Attempt</h4>
+                            <span class="text-[10px] font-bold text-error uppercase">DENY</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-xs mb-2">
+                            <div><span class="text-on-surface-variant">Endpoint:</span> <span class="text-on-surface font-mono">/api/admin</span></div>
+                            <div><span class="text-on-surface-variant">Time:</span> <span class="text-on-surface">14:22:11</span></div>
+                            <div><span class="text-on-surface-variant">Risk Score:</span> <span class="font-bold text-error">98</span></div>
+                        </div>
+                        <p class="text-xs text-on-surface-variant">Unauthenticated access attempt to admin endpoint. Blocked by auth policy.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 hover:bg-surface-container-high transition-colors group">
+                <div class="flex items-start gap-4">
+                    <div class="w-2 h-2 rounded-full bg-tertiary mt-2.5 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-on-surface">Unusual Access Pattern</h4>
+                            <span class="text-[10px] font-bold text-tertiary uppercase">CHALLENGE</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-xs mb-2">
+                            <div><span class="text-on-surface-variant">Endpoint:</span> <span class="text-on-surface font-mono">/api/v1/transactions</span></div>
+                            <div><span class="text-on-surface-variant">Time:</span> <span class="text-on-surface">14:18:55</span></div>
+                            <div><span class="text-on-surface-variant">Risk Score:</span> <span class="font-bold text-tertiary">65</span></div>
+                        </div>
+                        <p class="text-xs text-on-surface-variant">Anomalous bulk request pattern detected. User challenged for verification.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 hover:bg-surface-container-high transition-colors group">
+                <div class="flex items-start gap-4">
+                    <div class="w-2 h-2 rounded-full bg-secondary mt-2.5 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-on-surface">Data Export Request</h4>
+                            <span class="text-[10px] font-bold text-secondary uppercase">ALLOW</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-xs mb-2">
+                            <div><span class="text-on-surface-variant">Endpoint:</span> <span class="text-on-surface font-mono">/api/v1/export</span></div>
+                            <div><span class="text-on-surface-variant">Time:</span> <span class="text-on-surface">14:15:30</span></div>
+                            <div><span class="text-on-surface-variant">Risk Score:</span> <span class="font-bold text-secondary">28</span></div>
+                        </div>
+                        <p class="text-xs text-on-surface-variant">Authenticated export request within business hours. Allowed with logging.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Details Panel -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+        <div class="bg-surface-container rounded-xl p-6">
+            <h4 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Event Statistics</h4>
+            <div class="space-y-4">
+                <div class="flex justify-between items-end">
+                    <span class="text-xs text-on-surface-variant uppercase tracking-wider">Total Events</span>
+                    <span class="text-2xl font-bold text-on-surface">2,847</span>
+                </div>
+                <div class="flex justify-between items-end">
+                    <span class="text-xs text-on-surface-variant uppercase tracking-wider">Denied</span>
+                    <span class="text-2xl font-bold text-error">284</span>
+                </div>
+                <div class="flex justify-between items-end">
+                    <span class="text-xs text-on-surface-variant uppercase tracking-wider">Challenged</span>
+                    <span class="text-2xl font-bold text-tertiary">142</span>
+                </div>
+                <div class="flex justify-between items-end">
+                    <span class="text-xs text-on-surface-variant uppercase tracking-wider">Allowed</span>
+                    <span class="text-2xl font-bold text-secondary">2,421</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 bg-surface-container rounded-xl p-6">
+            <h4 class="text-sm font-bold uppercase tracking-widest text-on-surface-variant mb-4">Top Threat Events</h4>
+            <div class="space-y-3">
+                <div class="flex items-center justify-between p-3 bg-surface-container-high rounded border-l-2 border-error">
+                    <div>
+                        <p class="text-sm font-semibold text-on-surface">SQL Injection</p>
+                        <p class="text-xs text-on-surface-variant">High severity payload</p>
+                    </div>
+                    <span class="text-xs font-bold text-error">284 events</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-surface-container-high rounded border-l-2 border-error">
+                    <div>
+                        <p class="text-sm font-semibold text-on-surface">Authentication Bypass</p>
+                        <p class="text-xs text-on-surface-variant">Failed auth attempts</p>
+                    </div>
+                    <span class="text-xs font-bold text-error">156 events</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-surface-container-high rounded border-l-2 border-tertiary">
+                    <div>
+                        <p class="text-sm font-semibold text-on-surface">Anomalous Behavior</p>
+                        <p class="text-xs text-on-surface-variant">Unusual patterns</p>
+                    </div>
+                    <span class="text-xs font-bold text-tertiary">89 events</span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 </body>
 </html>

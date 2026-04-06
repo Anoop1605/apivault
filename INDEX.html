@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home - NYXSEC</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script>tailwind.config={darkMode:"class",theme:{extend:{colors:{"primary":"#c0c1ff","secondary":"#c0c1ff","error":"#ffb4ab","tertiary":"#ffb783","on-surface":"#dfe2eb","on-surface-variant":"#c7c4d7","surface-container":"#1c2026","surface-container-low":"#181c22","surface-container-high":"#262a31","surface-container-highest":"#31353c","outline-variant":"#464554","background":"#10141a","surface":"#10141a","surface-dim":"#10141a"},borderRadius:{DEFAULT:"0.125rem",lg:"0.25rem",xl:"0.5rem",full:"0.75rem"},fontFamily:{headline:["Plus Jakarta Sans"],body:["Plus Jakarta Sans"],label:["Plus Jakarta Sans"]}}},}</script>
+    <style>body{font-family:'Plus Jakarta Sans',sans-serif;background-color:#10141a;}.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}.silk-gradient{background:linear-gradient(135deg,#c0c1ff 0%,#8083ff 100%);}</style>
+</head>
+<body class="text-on-background bg-surface-dim">
+<div class="flex">
+    <!-- Sidebar Navigation -->
+    <aside class="w-64 fixed left-0 top-0 h-screen bg-[#10141a] py-6 z-50 border-r border-outline-variant/10 overflow-y-auto">
+        <div class="px-6 mb-8"><h1 class="text-xl font-bold tracking-tighter text-[#c0c1ff]">NYXSEC</h1><p class="text-xs text-slate-500 uppercase tracking-widest mt-1">Admin Console</p></div>
+        <nav class="space-y-1 px-3">
+            <a href="INDEX.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c0c1ff] font-semibold border-r-2 border-indigo-500 bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">home</span> <span>Home</span></a>
+            <a href="dashboard-preview.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c7c4d7] hover:bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">dashboard</span> <span>Dashboard</span></a>
+            <a href="timeline-preview.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c7c4d7] hover:bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">schedule</span> <span>Timeline</span></a>
+            <a href="session-explorer-preview.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c7c4d7] hover:bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">person</span> <span>Sessions</span></a>
+            <a href="policy-trace-preview.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c7c4d7] hover:bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">gavel</span> <span>Policy Trace</span></a>
+            <a href="replay-preview.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c7c4d7] hover:bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">play_circle</span> <span>Replay</span></a>
+            <a href="whatif-preview.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c7c4d7] hover:bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">lightbulb</span> <span>What-If</span></a>
+            <a href="alerts-preview.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c7c4d7] hover:bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">notifications</span> <span>Alerts</span></a>
+            <a href="metrics-preview.html" class="flex items-center gap-3 px-3 py-2.5 text-[#c7c4d7] hover:bg-[#1c2026] rounded transition-all"><span class="material-symbols-outlined">analytics</span> <span>Metrics</span></a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="ml-64 w-full min-h-screen">
+        <!-- Top Nav -->
+        <header class="sticky top-0 h-20 flex items-center justify-between bg-[#15191f] border-b border-outline-variant/10 px-8 z-40"><h2 class="text-on-surface text-2xl font-bold">Welcome to NYXSEC</h2></header>
+
+        <!-- Page Content -->
+        <div class="p-8">
+            <div class="mb-12">
+                <h2 class="text-4xl font-extrabold tracking-tight text-on-surface mb-2">🎨 NYXSEC Dashboard</h2>
+                <p class="text-on-surface-variant text-lg">Complete Frontend UI System - 8 Pages with Full Navigation</p>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-surface-container-low p-6 rounded-xl">
+                    <p class="text-on-surface-variant text-xs uppercase mb-2">Total Pages</p>
+                    <h3 class="text-3xl font-bold text-on-surface">8</h3>
+                    <p class="text-xs text-on-surface-variant mt-1">All Connected</p>
+                </div>
+                <div class="bg-surface-container-low p-6 rounded-xl">
+                    <p class="text-on-surface-variant text-xs uppercase mb-2">Navigation</p>
+                    <h3 class="text-3xl font-bold text-primary">100%</h3>
+                    <p class="text-xs text-on-surface-variant mt-1">Working</p>
+                </div>
+                <div class="bg-surface-container-low p-6 rounded-xl">
+                    <p class="text-on-surface-variant text-xs uppercase mb-2">Theme</p>
+                    <h3 class="text-3xl font-bold text-tertiary">Custom</h3>
+                    <p class="text-xs text-on-surface-variant mt-1">NYXSEC Dark</p>
+                </div>
+                <div class="bg-surface-container-low p-6 rounded-xl">
+                    <p class="text-on-surface-variant text-xs uppercase mb-2">Status</p>
+                    <h3 class="text-3xl font-bold text-secondary">✓ Ready</h3>
+                    <p class="text-xs text-on-surface-variant mt-1">Frontend Only</p>
+                </div>
+            </div>
+
+            <!-- Pages Grid -->
+            <h3 class="text-2xl font-bold text-on-surface mb-6">📄 All Pages</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+                <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="material-symbols-outlined text-2xl text-primary">dashboard</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-on-surface">Dashboard</h4>
+                            <p class="text-xs text-on-surface-variant">Security overview</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-on-surface-variant mb-4">Real-time security metrics, request distribution charts, decision statistics, and flagged sessions table.</p>
+                    <a href="dashboard-preview.html" class="inline-block px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Open →</a>
+                </div>
+
+                <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="material-symbols-outlined text-2xl text-primary">schedule</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-on-surface">Timeline</h4>
+                            <p class="text-xs text-on-surface-variant">Event log</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-on-surface-variant mb-4">Real-time event sequence with decision markers, filtering options, and threat statistics dashboard.</p>
+                    <a href="timeline-preview.html" class="inline-block px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Open →</a>
+                </div>
+
+                <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="material-symbols-outlined text-2xl text-primary">person</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-on-surface">Sessions</h4>
+                            <p class="text-xs text-on-surface-variant">User sessions</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-on-surface-variant mb-4">Session explorer with risk assessment cards, event counts, denial statistics, and behavioral insights.</p>
+                    <a href="session-explorer-preview.html" class="inline-block px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Open →</a>
+                </div>
+
+                <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="material-symbols-outlined text-2xl text-primary">gavel</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-on-surface">Policy Trace</h4>
+                            <p class="text-xs text-on-surface-variant">Policy analysis</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-on-surface-variant mb-4">Deep dive into policy decisions with step-by-step evaluation, rule matching, and decision context.</p>
+                    <a href="policy-trace-preview.html" class="inline-block px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Open →</a>
+                </div>
+
+                <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="material-symbols-outlined text-2xl text-primary">play_circle</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-on-surface">Replay</h4>
+                            <p class="text-xs text-on-surface-variant">Event replay</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-on-surface-variant mb-4">Reproduce past security events with playback controls, timeline visualization, and session analysis.</p>
+                    <a href="replay-preview.html" class="inline-block px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Open →</a>
+                </div>
+
+                <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="material-symbols-outlined text-2xl text-primary">lightbulb</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-on-surface">What-If</h4>
+                            <p class="text-xs text-on-surface-variant">Simulation</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-on-surface-variant mb-4">Test policy changes before deployment with impact analysis and divergence detection.</p>
+                    <a href="whatif-preview.html" class="inline-block px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Open →</a>
+                </div>
+
+                <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="material-symbols-outlined text-2xl text-primary">notifications</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-on-surface">Alerts</h4>
+                            <p class="text-xs text-on-surface-variant">Security alerts</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-on-surface-variant mb-4">Security alert feed with critical threats, severity filtering, and acknowledgment tracking.</p>
+                    <a href="alerts-preview.html" class="inline-block px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Open →</a>
+                </div>
+
+                <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="material-symbols-outlined text-2xl text-primary">analytics</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-on-surface">Metrics</h4>
+                            <p class="text-xs text-on-surface-variant">System metrics</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-on-surface-variant mb-4">System performance monitoring with latency charts, resource usage, and service health status.</p>
+                    <a href="metrics-preview.html" class="inline-block px-4 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all">Open →</a>
+                </div>
+            </div>
+
+            <!-- Features -->
+            <div class="bg-surface-container rounded-xl p-8 border border-outline-variant/5">
+                <h3 class="text-2xl font-bold text-on-surface mb-6">✨ Frontend Features</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="flex items-start gap-3 mb-4">
+                            <span class="material-symbols-outlined text-primary">check_circle</span>
+                            <div>
+                                <h4 class="font-bold text-on-surface">Perfect Navigation</h4>
+                                <p class="text-xs text-on-surface-variant">Seamless sidebar navigation across all 8 pages</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 mb-4">
+                            <span class="material-symbols-outlined text-primary">check_circle</span>
+                            <div>
+                                <h4 class="font-bold text-on-surface">Tailwind CSS</h4>
+                                <p class="text-xs text-on-surface-variant">Full responsive styling with custom colors</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 mb-4">
+                            <span class="material-symbols-outlined text-primary">check_circle</span>
+                            <div>
+                                <h4 class="font-bold text-on-surface">Material Icons</h4>
+                                <p class="text-xs text-on-surface-variant">Professional icon library throughout</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <span class="material-symbols-outlined text-primary">check_circle</span>
+                            <div>
+                                <h4 class="font-bold text-on-surface">Dark Theme</h4>
+                                <p class="text-xs text-on-surface-variant">NYXSEC color palette - indigo & orange</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-start gap-3 mb-4">
+                            <span class="material-symbols-outlined text-primary">check_circle</span>
+                            <div>
+                                <h4 class="font-bold text-on-surface">Mock Data</h4>
+                                <p class="text-xs text-on-surface-variant">Charts, tables, statistics on every page</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 mb-4">
+                            <span class="material-symbols-outlined text-primary">check_circle</span>
+                            <div>
+                                <h4 class="font-bold text-on-surface">Glassmorphism</h4>
+                                <p class="text-xs text-on-surface-variant">Modern card design with smooth effects</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 mb-4">
+                            <span class="material-symbols-outlined text-primary">check_circle</span>
+                            <div>
+                                <h4 class="font-bold text-on-surface">Responsive</h4>
+                                <p class="text-xs text-on-surface-variant">Mobile-friendly layouts across all pages</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <span class="material-symbols-outlined text-primary">check_circle</span>
+                            <div>
+                                <h4 class="font-bold text-on-surface">Pure Frontend</h4>
+                                <p class="text-xs text-on-surface-variant">No backend required - open & view!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+</body>
+</html>

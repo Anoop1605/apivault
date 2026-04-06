@@ -2,6 +2,7 @@ package com.sentinel.shared.context;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Immutable snapshot of an incoming API request.
@@ -33,7 +34,7 @@ public final class RequestContext {
     /** The API endpoint being accessed, e.g. "/api/admin/users" */
     private final String endpoint;
 
-    /** HTTP method: GET, POST, PUT, DELETE, etc. */
+    /** HTTP method: GET, POST, PUT, DELETE, PATCH */
     private final String method;
 
     /** Client's source IP address — from X-Forwarded-For or direct connection */
@@ -42,8 +43,14 @@ public final class RequestContext {
     /** When the request arrived at the Gateway */
     private final Instant requestTimestamp;
 
+    /** User-Agent header value. */
+    private final String userAgent;
+
+    /** Behavioral risk score (0.0–1.0). Populated by Risk Scorer. */
+    private final Double riskScore;
+
     /**
-     * SHA-256 hash of the request body.
+     * SHA-256 hex digest of request body.
      * NEVER store the raw body — this is a hard security rule.
      * null for GET requests (no body).
      */
@@ -59,6 +66,8 @@ public final class RequestContext {
         this.method           = builder.method;
         this.sourceIp         = builder.sourceIp;
         this.requestTimestamp  = builder.requestTimestamp;
+        this.userAgent        = builder.userAgent;
+        this.riskScore        = builder.riskScore;
         this.requestBodyHash  = builder.requestBodyHash;
     }
 
@@ -71,6 +80,8 @@ public final class RequestContext {
     public String getMethod()             { return method; }
     public String getSourceIp()           { return sourceIp; }
     public Instant getRequestTimestamp()   { return requestTimestamp; }
+    public String getUserAgent()          { return userAgent; }
+    public Double getRiskScore()          { return riskScore; }
     public String getRequestBodyHash()    { return requestBodyHash; }
 
     // ── Builder (same API as Lombok @Builder) ───────────────────────
@@ -87,6 +98,8 @@ public final class RequestContext {
         private String method;
         private String sourceIp;
         private Instant requestTimestamp;
+        private String userAgent;
+        private Double riskScore;
         private String requestBodyHash;
 
         public Builder userId(String userId)                     { this.userId = userId; return this; }
@@ -96,6 +109,8 @@ public final class RequestContext {
         public Builder method(String method)                     { this.method = method; return this; }
         public Builder sourceIp(String sourceIp)                 { this.sourceIp = sourceIp; return this; }
         public Builder requestTimestamp(Instant requestTimestamp) { this.requestTimestamp = requestTimestamp; return this; }
+        public Builder userAgent(String userAgent)               { this.userAgent = userAgent; return this; }
+        public Builder riskScore(Double riskScore)               { this.riskScore = riskScore; return this; }
         public Builder requestBodyHash(String requestBodyHash)   { this.requestBodyHash = requestBodyHash; return this; }
 
         public RequestContext build() {
@@ -115,6 +130,8 @@ public final class RequestContext {
                 ", method='" + method + '\'' +
                 ", sourceIp='" + sourceIp + '\'' +
                 ", requestTimestamp=" + requestTimestamp +
+                ", userAgent='" + userAgent + '\'' +
+                ", riskScore=" + riskScore +
                 ", requestBodyHash='" + requestBodyHash + '\'' +
                 '}';
     }

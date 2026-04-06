@@ -30,10 +30,35 @@ public class EventQueryService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Map SecurityEvent entity to EventDTO with all 20 fields.
+     * Maps all fields from SecurityEvent to EventDTO including roles, riskScore, riskSignals,
+     * bodyHash, eventHash, gatewayVersion, etc.
+     */
     private EventDTO toDTO(SecurityEvent event) {
-        EventDTO dto = new EventDTO();
-        dto.setSessionId(event.getSessionId());
-        dto.setTimestampNs(event.getTimestampNs());
+        EventDTO dto = EventDTO.builder()
+                .eventId(event.getId())
+                .sessionId(event.getSessionId())
+                .timestampNs(event.getTimestampNs())
+                .eventType(event.getEventType())
+                .userId(event.getUserId())
+                .roles(event.getRoles())
+                .endpoint(event.getEndpoint())
+                .httpMethod(event.getHttpMethod())
+                .sourceIp(event.getSourceIp())
+                .userAgent(event.getUserAgent())
+                .policyRuleId(event.getPolicyRuleId())
+                .policyRuleVersion(event.getPolicyRuleVersion())
+                .policyRuleSnapshotId(event.getPolicyRuleSnapshotId())
+                .riskScore(event.getRiskScore())
+                .riskSignals(event.getRiskSignals())
+                .decision(event.getDecision())
+                .requestContext(event.getRequestContext())
+                .bodyHash(event.getBodyHash())
+                .eventHash(event.getEventHash())
+                .gatewayVersion(event.getGatewayVersion())
+                .build();
         return dto;
     }
 }
+

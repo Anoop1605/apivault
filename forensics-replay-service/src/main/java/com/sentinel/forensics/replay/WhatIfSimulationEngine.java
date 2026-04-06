@@ -4,9 +4,11 @@ import com.sentinel.shared.dto.EventDTO;
 import com.sentinel.shared.dto.PolicySnapshot;
 import com.sentinel.shared.dto.ReplayReport;
 import com.sentinel.shared.dto.StepDecision;
+import com.sentinel.shared.enums.Decision;
+import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,7 +23,14 @@ import java.util.UUID;
  * stricter rules?" — e.g. the attack would have been blocked at step 2
  * instead of step 5.
  */
+@Slf4j
 public class WhatIfSimulationEngine {
+
+    private final ReplayEngine replayEngine;
+
+    public WhatIfSimulationEngine(ReplayEngine replayEngine) {
+        this.replayEngine = replayEngine;
+    }
 
     /**
      * Simulate replay with an alternate PolicySnapshot.
@@ -38,46 +47,52 @@ public class WhatIfSimulationEngine {
                                   PolicySnapshot originalSnapshot,
                                   PolicySnapshot alternateSnapshot) {
 
-        List<EventDTO> sortedEvents = new ArrayList<>(events);
-        sortedEvents.sort(Comparator.comparingLong(EventDTO::getTimestampNs));
+        // Reconstruct with original snapshot
+        List<StepDecision> stepsOriginal = replayEngine.reconstruct(events, originalSnapshot);
 
-        List<StepDecision> steps        = new ArrayList<>();
-        List<String> originalDecisions  = new ArrayList<>();
-        List<String> simulatedDecisions = new ArrayList<>();
+        // Reconstruct with alternate snapshot
+        List<StepDecision> stepsSimulated = replayEngine.simulateWithModifiedRules(events, originalSnapshot, alternateSnapshot);
+
+        // Count divergences and build report
+        int divergenceCount = 0;
         int firstDivergenceStep = -1;
 
-        for (int i = 0; i < sortedEvents.size(); i++) {
-            EventDTO event = sortedEvents.get(i);
+        List<Decision> originalDecisions = new ArrayList<>();
+        List<Decision> simulatedDecisions = new ArrayList<>();
 
-            // Evaluate with original frozen snapshot
-            String[] original   = ReplayEngine.evaluateRules(event, originalSnapshot);
-            // Evaluate with alternate (what-if) snapshot
-            String[] simulated  = ReplayEngine.evaluateRules(event, alternateSnapshot);
+        for (int i = 0; i < stepsOriginal.size(); i++) {
+            StepDecision origStep = stepsOriginal.get(i);
+            StepDecision simStep = stepsSimulated.get(i);
 
-            String origDecision = original[0];
-            String simDecision  = simulated[0];
-            String ruleMatched  = simulated[1] != null ? simulated[1] : original[1];
+            String origDecisionStr = origStep.getOriginalDecision();
+            String simDecisionStr = simStep.getSimulatedDecision();
 
-            StepDecision step = new StepDecision(event, origDecision, simDecision, ruleMatched);
-            steps.add(step);
+            if (origDecisionStr != null) {
+                originalDecisions.add(Decision.valueOf(origDecisionStr));
+            }
+            if (simDecisionStr != null) {
+                simulatedDecisions.add(Decision.valueOf(simDecisionStr));
+            }
 
-            originalDecisions.add(origDecision);
-            simulatedDecisions.add(simDecision);
-
-            // Record the first step (1-based) where decisions diverge
-            if (firstDivergenceStep == -1 && !origDecision.equals(simDecision)) {
-                firstDivergenceStep = i + 1;
+            if (!origDecisionStr.equals(simDecisionStr)) {
+                divergenceCount++;
+                if (firstDivergenceStep == -1) {
+                    firstDivergenceStep = i + 1;
+                }
             }
         }
 
-        ReplayReport report = new ReplayReport();
-        report.setSessionId(sessionId);
-        report.setSteps(steps);
-        report.setOriginalDecisions(originalDecisions);
-        report.setSimulatedDecisions(simulatedDecisions);
-        report.setFirstDivergenceStep(firstDivergenceStep);
-        // snapshotIdUsed comes from the alternateSnapshot once real persistence is in place
-        report.setSnapshotIdUsed(null);
+        ReplayReport report = ReplayReport.builder()
+                .sessionId(sessionId)
+                .totalEvents(events.size())
+                .divergenceCount(divergenceCount)
+                .steps(stepsSimulated)
+                .isSimulation(true)
+                .generatedAt(LocalDateTime.now())
+                .build();
+
+        log.info("What-if simulation complete: {} divergences out of {} events",
+                divergenceCount, events.size());
 
         return report;
     }

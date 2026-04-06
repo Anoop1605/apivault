@@ -1,0 +1,66 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-service
+
+  cloud:
+    gateway:
+      routes:
+        # Route to Payment Service (P1 mock backend)
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:9001}
+          predicates:
+            - Path=/api/payments/**
+
+        # Route to User Service (P1 mock backend)
+        - id: user-service
+          uri: ${USER_SERVICE_URL:http://localhost:9002}
+          predicates:
+            - Path=/api/users/**
+
+        # Route to Admin Service (P1 mock backend)
+        - id: admin-service
+          uri: ${ADMIN_SERVICE_URL:http://localhost:9003}
+          predicates:
+            - Path=/api/admin/**
+
+# Sentinel-specific configuration
+sentinel:
+  jwt:
+    public-key-path: ${SENTINEL_JWT_PUBLIC_KEY_PATH:src/main/resources/keys/public_key.pem}
+    issuer: sentinel
+    audience: sentinel-api
+  event-store:
+    url: ${EVENT_STORE_URL:http://localhost:8081}
+  gateway:
+    version: 2.0.0
+    public-paths: /actuator,/health,/metrics
+    redact-headers: Authorization,Cookie,Set-Cookie
+
+# Spring Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+# Application info for /actuator/info
+info:
+  app:
+    name: Sentinel API Gateway
+    version: 2.0.0
+    description: Event-Sourced Replayable API Gateway for Zero-Trust Security
+
+logging:
+  level:
+    com.sentinel.gateway: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
