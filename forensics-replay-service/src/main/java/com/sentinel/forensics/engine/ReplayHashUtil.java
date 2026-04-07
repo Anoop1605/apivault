@@ -1,6 +1,7 @@
 package com.sentinel.forensics.engine;
 
 import com.sentinel.shared.dto.EventDTO;
+import com.sentinel.shared.dto.PolicySnapshot;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -35,7 +36,7 @@ public class ReplayHashUtil {
      * Used for replay report tamper detection.
      */
     public static String computeSessionHash(java.util.List<EventDTO> events,
-                                            com.sentinel.shared.dto.PolicySnapshot snapshot) {
+                                            PolicySnapshot snapshot) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             for (EventDTO event : events) {
@@ -95,7 +96,7 @@ public class ReplayHashUtil {
         return value == null ? "null" : value.toString();
     }
 
-    private static String riskScoreStr(Float riskScore) {
+    private static String riskScoreStr(Double riskScore) {
         if (riskScore == null) return "null";
         return String.format("%.6f", riskScore);
     }

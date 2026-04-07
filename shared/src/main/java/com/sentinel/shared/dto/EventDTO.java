@@ -1,64 +1,84 @@
 package com.sentinel.shared.dto;
 
+import com.sentinel.shared.enums.Decision;
+import com.sentinel.shared.enums.EventType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+/**
+ * DTO representing a single event record.
+ * Matches the events table schema defined in PRD Section 8.1.
+ * Used across all services for event creation, query responses, and replay.
+ */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class EventDTO {
 
-    // PRD §10.3 — all 13 canonical fields required for SHA-256 event hash
+    /** Globally unique event identifier (UUID v4). */
     private UUID eventId;
+
+    /** Nanosecond-precision epoch timestamp. */
+    private Long timestampNs;
+
+    /** Type of event (REQUEST_RECEIVED, AUTH_FAILED, etc.). */
+    private EventType eventType;
+
+    /** Groups all events in a single client session. */
     private UUID sessionId;
-    private long timestampNs;
-    private String eventType;
+
+    /** JWT subject claim. Null for unauthenticated requests. */
     private String userId;
+
+    /** Roles extracted from JWT claims. */
+    private List<String> roles;
+
+    /** Full resolved API path. */
     private String endpoint;
+
+    /** HTTP verb (GET, POST, PUT, DELETE, PATCH). */
     private String httpMethod;
-    private String decision;
+
+    /** Originating client IP address. */
+    private String sourceIp;
+
+    /** User-Agent header value. */
+    private String userAgent;
+
+    /** ID of the ABAC rule that produced the decision. */
     private String policyRuleId;
+
+    /** Version number of the rule at evaluation time. */
     private Integer policyRuleVersion;
+
+    /** FK to policy_rules_history for deterministic replay. */
     private UUID policyRuleSnapshotId;
-    private Float riskScore;
+
+    /** Behavioral risk score (0.0–1.0). */
+    private Double riskScore;
+
+    /** Breakdown: {ip_rep, request_rate, jwt_anomaly, endpoint_freq}. */
+    private Map<String, Double> riskSignals;
+
+    /** ALLOW, DENY, or FLAG. */
+    private Decision decision;
+
+    /** Headers (sanitised), query params, body_hash, content-type. */
+    private Map<String, Object> requestContext;
+
+    /** SHA-256 hex digest of request body. */
     private String bodyHash;
+
+    /** SHA-256 of canonical serialization of all content fields. */
+    private String eventHash;
+
+    /** Running version of the Sentinel gateway. */
     private String gatewayVersion;
-
-    public UUID getEventId() { return eventId; }
-    public void setEventId(UUID eventId) { this.eventId = eventId; }
-
-    public UUID getSessionId() { return sessionId; }
-    public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
-
-    public long getTimestampNs() { return timestampNs; }
-    public void setTimestampNs(long timestampNs) { this.timestampNs = timestampNs; }
-
-    public String getEventType() { return eventType; }
-    public void setEventType(String eventType) { this.eventType = eventType; }
-
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
-
-    public String getEndpoint() { return endpoint; }
-    public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
-
-    public String getHttpMethod() { return httpMethod; }
-    public void setHttpMethod(String httpMethod) { this.httpMethod = httpMethod; }
-
-    public String getDecision() { return decision; }
-    public void setDecision(String decision) { this.decision = decision; }
-
-    public String getPolicyRuleId() { return policyRuleId; }
-    public void setPolicyRuleId(String policyRuleId) { this.policyRuleId = policyRuleId; }
-
-    public Integer getPolicyRuleVersion() { return policyRuleVersion; }
-    public void setPolicyRuleVersion(Integer policyRuleVersion) { this.policyRuleVersion = policyRuleVersion; }
-
-    public UUID getPolicyRuleSnapshotId() { return policyRuleSnapshotId; }
-    public void setPolicyRuleSnapshotId(UUID policyRuleSnapshotId) { this.policyRuleSnapshotId = policyRuleSnapshotId; }
-
-    public Float getRiskScore() { return riskScore; }
-    public void setRiskScore(Float riskScore) { this.riskScore = riskScore; }
-
-    public String getBodyHash() { return bodyHash; }
-    public void setBodyHash(String bodyHash) { this.bodyHash = bodyHash; }
-
-    public String getGatewayVersion() { return gatewayVersion; }
-    public void setGatewayVersion(String gatewayVersion) { this.gatewayVersion = gatewayVersion; }
 }
