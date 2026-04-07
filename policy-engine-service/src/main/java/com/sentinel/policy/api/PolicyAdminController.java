@@ -4,7 +4,7 @@ import com.sentinel.policy.engine.PolicyEngine;
 import com.sentinel.policy.model.PolicyDecision;
 import com.sentinel.policy.model.PolicyRule;
 import com.sentinel.policy.service.PolicyService;
-import com.sentinel.shared.dto.RequestContext;
+import com.sentinel.shared.context.RequestContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

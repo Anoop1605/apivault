@@ -16,13 +16,17 @@
     <packaging>jar</packaging>
     <name>shared</name>
 
-    <!-- 🔥 ADD THIS BLOCK -->
     <properties>
         <spring-boot.repackage.skip>true</spring-boot.repackage.skip>
     </properties>
 
     <dependencies>
-        <!-- Shared DTOs and Enums -->
+        <!-- Shared DTOs and Enums (No business logic) -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 
 </project>

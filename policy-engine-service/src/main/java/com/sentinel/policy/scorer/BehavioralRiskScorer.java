@@ -1,175 +1,179 @@
 package com.sentinel.policy.scorer;
 
-import com.sentinel.shared.dto.RequestContext;
-import lombok.extern.slf4j.Slf4j;
+import com.sentinel.policy.scorer.signals.RiskScoreResult;
+import com.sentinel.policy.scorer.signals.RiskSignal;
+import com.sentinel.shared.context.RequestContext;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
- * BehavioralRiskScorer — Calculates composite behavioral risk score (0.0–1.0).
- * Implements simplified scoring based on four signals:
- * - IP Reputation (30%): blacklist check
- * - Request Rate (25%): rate anomaly detection
- * - JWT Anomaly (25%): unusual JWT claims detection
- * - Endpoint Frequency (20%): endpoint access frequency anomaly
+ * Behavioral Risk Scorer — the orchestrator that combines all RiskSignal
+ * implementations into a single weighted risk score per request.
  *
- * PRD Section 7.1: Behavioral Risk Scoring
+ * ───────────────────────────────────────────────────────────────────
+ * ANALOGY — The "Judge's Panel"
+ * ───────────────────────────────────────────────────────────────────
+ * Think of a gymnastics competition. Each judge (signal) watches the
+ * same performance (request) and gives an independent score from 0 to 10.
+ * The final score is a weighted average of all judges.
+ *
+ * Here, our 4 "judges" are:
+ *   1. IpReputationSignal  — "Has this IP been in trouble before?"
+ *   2. RequestRateSignal   — "Is this user sending too many requests?"
+ *   3. JwtAnomalySignal    — "Is this token being used from multiple IPs?"
+ *   4. EndpointFreqSignal  — "Is this user hammering a single endpoint?"
+ *
+ * Each judge scores 0.0 (safe) to 1.0 (max risk), with a weight of 0.25.
+ * The final score is the weighted average, and if it exceeds 0.7 → FLAGGED.
+ *
+ * ───────────────────────────────────────────────────────────────────
+ * Design Pattern: Strategy + Dependency Injection
+ * ───────────────────────────────────────────────────────────────────
+ * All 4 signals implement the RiskSignal interface (Strategy pattern).
+ * Spring auto-discovers them because they're annotated with @Component
+ * and injects them as a List<RiskSignal> (Dependency Injection).
+ *
+ * WHY is this powerful?
+ *   - To add a 5th signal, just create a new @Component class that
+ *     implements RiskSignal. The scorer picks it up automatically.
+ *     Zero changes needed in this class. Open/Closed Principle in action.
+ *   - To remove a signal, just delete new @Component (or remove @Component).
+ *   - To change weights, adjust weight() in the individual signal.
+ *   - In tests, you can inject mock signals to test the scorer in isolation.
+ *
+ * INTERVIEW CONNECTION:
+ *   "How does Strategy pattern differ from Template Method?"
+ *   Strategy: composition — the scorer HAS signals, each independently replaceable.
+ *   Template Method: inheritance — subclass overrides steps of a parent algorithm.
+ *   Strategy is more flexible because signals are independent objects.
+ *
+ * ───────────────────────────────────────────────────────────────────
+ * Performance
+ * ───────────────────────────────────────────────────────────────────
+ * The scorer itself does zero I/O. It just:
+ *   1. Loops through 4 signals (each O(1) or O(k) in-process)
+ *   2. Computes a weighted sum (O(n) where n = 4, so effectively O(1))
+ *   3. Builds a small HashMap for breakdown (O(n) = O(4))
+ *   4. Returns an immutable RiskScoreResult
+ *
+ * Total: well within the ≤ 5ms p99 budget.
  */
-@Slf4j
-@Service
+@Service  // @Service (not @Component) — semantic: this IS the business service for risk scoring
 public class BehavioralRiskScorer {
 
-    // Simplified IP blacklist (in production, would use external threat intel)
-    private static final Set<String> IP_BLACKLIST = Set.of(
-            "192.0.2.1", "198.51.100.1", "203.0.113.1" // Example IPs
-    );
-
-    // In-memory rate tracking (simplified - in production would use Redis)
-    private static final Map<String, RequestRateInfo> REQUEST_RATE_MAP = new HashMap<>();
-    private static final long RATE_WINDOW_MS = 60_000; // 1 minute
-    private static final int RATE_THRESHOLD = 100; // requests per minute
+    // ────────────────────────────────────────────────────────────────
+    //  Dependencies — injected by Spring
+    // ────────────────────────────────────────────────────────────────
 
     /**
-     * Calculate composite behavioral risk score (0.0 = safe, 1.0 = dangerous)
+     * All RiskSignal implementations, auto-discovered by Spring's component scan.
      *
-     * @param requestContext Request attributes
-     * @return Risk score between 0.0 and 1.0
+     * WHY List<RiskSignal> and not individual fields?
+     *   - If we had: IpReputationSignal ipSignal; RequestRateSignal rateSignal; ...
+     *     then adding a 5th signal means editing this class (violates Open/Closed).
+     *   - With List<RiskSignal>, Spring injects ALL @Component beans that implement
+     *     RiskSignal. Adding a new signal = zero changes here.
+     *
+     * WHY final? The list reference is set once at construction and never changes.
+     * The list contents are also fixed (Spring resolves all beans at startup).
      */
-    public double computeRiskScore(RequestContext requestContext) {
-        if (requestContext == null) {
-            return 0.0;
-        }
+    private final List<RiskSignal> signals;
 
-        double riskScore = 0.0;
+    /**
+     * Constructor injection — the recommended way in Spring.
+     *
+     * WHY constructor injection over @Autowired on a field?
+     *   1. Makes dependencies explicit — you can see what this class needs
+     *   2. Enables immutability (final fields)
+     *   3. Classes are testable without Spring — just pass mocks in the constructor
+     *   4. Spring guarantees all dependencies exist before this object is created
+     *
+     * @param signals all RiskSignal beans discovered by component scanning
+     */
+    public BehavioralRiskScorer(List<RiskSignal> signals) {
+        this.signals = signals;
+    }
 
-        // Signal 1: IP Reputation (30% weight)
-        double ipRepScore = computeIpReputationSignal(requestContext.getSourceIp());
-        riskScore += ipRepScore * 0.30;
-        log.debug("IP reputation score: {}", ipRepScore);
+    // ────────────────────────────────────────────────────────────────
+    //  Core scoring method
+    // ────────────────────────────────────────────────────────────────
 
-        // Signal 2: Request Rate Anomaly (25% weight)
-        double requestRateScore = computeRequestRateSignal(requestContext.getSourceIp());
-        riskScore += requestRateScore * 0.25;
-        log.debug("Request rate score: {}", requestRateScore);
-
-        // Signal 3: JWT Anomaly (25% weight)
-        double jwtAnomalyScore = computeJwtAnomalySignal(requestContext);
-        riskScore += jwtAnomalyScore * 0.25;
-        log.debug("JWT anomaly score: {}", jwtAnomalyScore);
-
-        // Signal 4: Endpoint Frequency (20% weight)
-        double endpointFreqScore = computeEndpointFrequencySignal(requestContext);
-        riskScore += endpointFreqScore * 0.20;
-        log.debug("Endpoint frequency score: {}", endpointFreqScore);
-
-        // Normalize to [0.0, 1.0]
-        riskScore = Math.min(1.0, Math.max(0.0, riskScore));
-
-        log.info("Calculated risk score for IP={}: {}", requestContext.getSourceIp(), riskScore);
-        return riskScore;
+    /**
+     * Legacy method for backwards compatibility with older PolicyEngine.
+     * Uses double return to match the previous interface.
+     * 
+     * @param ctx the request context to score
+     * @return the overall risk score (0.0–1.0)
+     */
+    public double computeRiskScore(RequestContext ctx) {
+        return score(ctx).score();
     }
 
     /**
-     * Compute IP reputation signal
-     * Simplified: Check against blacklist (0.5 if blacklisted, 0.1 if clean)
+     * Evaluates a request against all risk signals and produces a combined score.
+     *
+     * Algorithm:
+     *   1. For each signal: evaluate → get raw score, multiply by weight
+     *   2. Sum all (score × weight), sum all weights
+     *   3. Divide to get the weighted average
+     *   4. Build the signal breakdown map for forensics
+     *   5. Return RiskScoreResult (which auto-determines if flagged)
+     *
+     * Weighted average formula:
+     *   finalScore = Σ(signalScore_i × weight_i) / Σ(weight_i)
+     *
+     * With 4 equal-weight signals (0.25 each):
+     *   totalWeight = 0.25 × 4 = 1.0
+     *   finalScore = (s1 × 0.25 + s2 × 0.25 + s3 × 0.25 + s4 × 0.25) / 1.0
+     *              = average of all 4 scores
+     *
+     * Example:
+     *   ip_reputation = 0.3, request_rate = 0.6, jwt_anomaly = 0.0, endpoint_freq = 0.8
+     *   finalScore = (0.3 + 0.6 + 0.0 + 0.8) × 0.25 / 1.0 = 0.425
+     *   flagged? 0.425 < 0.7 → false
+     *
+     * WHY weighted average and not a simple sum?
+     *   - Sums can exceed 1.0 if multiple signals fire simultaneously.
+     *   - Weighted average always stays in [0.0, 1.0] — consistent with our contract.
+     *   - Weights let us make some signals more important than others later
+     *     (e.g. jwt_anomaly → 0.4 if we decide session hijacking is more critical).
+     *
+     * @param ctx the request context to score
+     * @return a RiskScoreResult with the overall score, flagged status, and breakdown
      */
-    private double computeIpReputationSignal(String sourceIp) {
-        if (sourceIp == null) {
-            return 0.0;
+    public RiskScoreResult score(RequestContext ctx) {
+
+        double weightedSum = 0.0;
+        double totalWeight = 0.0;
+        Map<String, Double> breakdown = new HashMap<>();
+
+        for (RiskSignal signal : signals) {
+
+            // Each signal evaluates independently — no signal knows about the others
+            double rawScore = signal.evaluate(ctx);
+            double weight   = signal.weight();
+
+            // Accumulate for weighted average
+            weightedSum += rawScore * weight;
+            totalWeight += weight;
+
+            // Record for forensics — P4 needs to know WHY a request was flagged
+            breakdown.put(signal.name(), rawScore);
         }
 
-        if (IP_BLACKLIST.contains(sourceIp)) {
-            log.warn("IP in blacklist: {}", sourceIp);
-            return 0.5;
-        }
+        // Guard against division by zero (shouldn't happen with 4 signals,
+        // but defensive coding is a good habit — especially in interviews)
+        double finalScore = (totalWeight > 0.0)
+                ? weightedSum / totalWeight
+                : 0.0;
 
-        return 0.1; // Default low risk for clean IPs
-    }
+        // Clamp to [0.0, 1.0] — belt-and-suspenders safety
+        finalScore = Math.min(1.0, Math.max(0.0, finalScore));
 
-    /**
-     * Compute request rate anomaly signal
-     * Simplified: Check if requests from IP exceed 100 req/min
-     */
-    private double computeRequestRateSignal(String sourceIp) {
-        if (sourceIp == null) {
-            return 0.0;
-        }
-
-        long now = System.currentTimeMillis();
-
-        // Get or create request rate info
-        REQUEST_RATE_MAP.putIfAbsent(sourceIp, new RequestRateInfo());
-        RequestRateInfo rateInfo = REQUEST_RATE_MAP.get(sourceIp);
-
-        // Clean old entries outside the window
-        if (now - rateInfo.lastTimestamp > RATE_WINDOW_MS) {
-            rateInfo.requestCount = 0;
-            rateInfo.lastTimestamp = now;
-        }
-
-        rateInfo.requestCount++;
-        rateInfo.lastTimestamp = now;
-
-        // If exceeds threshold, return high risk
-        if (rateInfo.requestCount > RATE_THRESHOLD) {
-            log.warn("High request rate for IP {}: {} requests/min", sourceIp, rateInfo.requestCount);
-            return 0.7;
-        }
-
-        return 0.1; // Low risk for normal rate
-    }
-
-    /**
-     * Compute JWT anomaly signal
-     * Simplified: Check if roles list is empty (anomaly) or has unusual claims
-     */
-    private double computeJwtAnomalySignal(RequestContext requestContext) {
-        if (requestContext == null || requestContext.getRoles() == null) {
-            return 0.3; // Anomaly if no roles
-        }
-
-        // Check for unusual number of roles (more than 10 is suspicious)
-        if (requestContext.getRoles().size() > 10) {
-            log.warn("Unusual number of roles: {}", requestContext.getRoles().size());
-            return 0.5;
-        }
-
-        // Check for known suspicious role names
-        boolean hasSuspiciousRole = requestContext.getRoles().stream()
-                .anyMatch(role -> role.contains("admin") && !role.equalsIgnoreCase("user.admin"));
-        if (hasSuspiciousRole) {
-            return 0.4;
-        }
-
-        return 0.1; // Normal JWT
-    }
-
-    /**
-     * Compute endpoint frequency anomaly signal
-     * Simplified: Check if user accesses same endpoint too frequently
-     */
-    private double computeEndpointFrequencySignal(RequestContext requestContext) {
-        if (requestContext == null || requestContext.getUserId() == null || requestContext.getEndpoint() == null) {
-            return 0.1;
-        }
-
-        // In a real system, would query event store for access frequency
-        // Simplified: assume 0.1 (low risk) by default
-        // A production system would check if endpoint accessed >5 times in 1 minute
-
-        return 0.1;
-    }
-
-    /**
-     * Simple helper class to track request rates per IP
-     */
-    private static class RequestRateInfo {
-        int requestCount = 0;
-        long lastTimestamp = System.currentTimeMillis();
+        // RiskScoreResult.of() handles the flagged check (score >= 0.7)
+        return RiskScoreResult.of(finalScore, breakdown);
     }
 }
-

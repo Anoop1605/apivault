@@ -1,7 +1,7 @@
 package com.sentinel.policy.engine;
 
 import com.sentinel.policy.model.PolicyRule;
-import com.sentinel.shared.dto.RequestContext;
+import com.sentinel.shared.context.RequestContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

@@ -2,7 +2,7 @@ package com.sentinel.forensics.replay;
 
 import com.sentinel.shared.dto.EventDTO;
 import com.sentinel.shared.dto.PolicySnapshot;
-import com.sentinel.shared.dto.RequestContext;
+import com.sentinel.shared.context.RequestContext;
 import com.sentinel.shared.dto.StepDecision;
 import com.sentinel.shared.enums.Decision;
 import lombok.extern.slf4j.Slf4j;

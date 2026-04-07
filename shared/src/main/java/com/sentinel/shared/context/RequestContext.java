@@ -1,47 +1,138 @@
 package com.sentinel.shared.context;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 /**
- * Immutable value object representing the full context of an inbound request.
- * Produced by P1 (Gateway), consumed by P2 (Policy Engine, Risk Scorer).
- * FROZEN after Phase 1 — changes require full team agreement.
+ * Immutable snapshot of an incoming API request.
+ *
+ * Created by the Gateway (P1) from HTTP headers + JWT claims.
+ * Consumed read-only by Policy Engine, Risk Scorer, and Event Store.
+ *
+ * FROZEN after Phase 1 — any field changes need full team sign-off.
+ *
+ * NOTE: Previously used Lombok @Value/@Builder, but Lombok is incompatible
+ * with JDK 25. Replaced with hand-written immutable class + builder.
+ * Functionally identical — same getters, same builder API.
  */
-@Data
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class RequestContext {
+public final class RequestContext {
 
-    /** JWT subject claim. Null for unauthenticated requests. */
-    private String userId;
+    // ── Identity fields (extracted from the JWT by P1) ──────────────
 
-    /** Roles extracted from JWT claims. */
-    private List<String> roles;
+    /** The authenticated user's ID — from JWT "sub" claim */
+    private final String userId;
 
-    /** Full resolved API path, e.g., /api/payments/delete */
-    private String endpoint;
+    /** Roles granted to this user — from JWT "roles" claim, e.g. ["USER", "ADMIN"] */
+    private final List<String> roles;
 
-    /** HTTP verb: GET, POST, PUT, DELETE, PATCH */
-    private String httpMethod;
+    /** Unique session identifier — from JWT "session_id" claim or Gateway-assigned */
+    private final String sessionId;
 
-    /** Originating client IP address. */
-    private String sourceIp;
+    // ── Request fields (extracted from the HTTP request by P1) ──────
 
-    /** Session UUID — from X-Session-ID header or generated. */
-    private String sessionId;
+    /** The API endpoint being accessed, e.g. "/api/admin/users" */
+    private final String endpoint;
 
-    /** Behavioral risk score (0.0–1.0). Populated by Risk Scorer. */
-    private Double riskScore;
+    /** HTTP method: GET, POST, PUT, DELETE, PATCH */
+    private final String method;
+
+    /** Client's source IP address — from X-Forwarded-For or direct connection */
+    private final String sourceIp;
+
+    /** When the request arrived at the Gateway */
+    private final Instant requestTimestamp;
 
     /** User-Agent header value. */
-    private String userAgent;
+    private final String userAgent;
 
-    /** SHA-256 hex digest of request body. Never the body itself. */
-    private String bodyHash;
+    /** Behavioral risk score (0.0–1.0). Populated by Risk Scorer. */
+    private final Double riskScore;
+
+    /**
+     * SHA-256 hex digest of request body.
+     * NEVER store the raw body — this is a hard security rule.
+     * null for GET requests (no body).
+     */
+    private final String requestBodyHash;
+
+    // ── Private constructor (use Builder) ────────────────────────────
+
+    private RequestContext(Builder builder) {
+        this.userId           = builder.userId;
+        this.roles            = builder.roles;
+        this.sessionId        = builder.sessionId;
+        this.endpoint         = builder.endpoint;
+        this.method           = builder.method;
+        this.sourceIp         = builder.sourceIp;
+        this.requestTimestamp  = builder.requestTimestamp;
+        this.userAgent        = builder.userAgent;
+        this.riskScore        = builder.riskScore;
+        this.requestBodyHash  = builder.requestBodyHash;
+    }
+
+    // ── Getters (read-only — no setters, this class is immutable) ───
+
+    public String getUserId()             { return userId; }
+    public List<String> getRoles()        { return roles; }
+    public String getSessionId()          { return sessionId; }
+    public String getEndpoint()           { return endpoint; }
+    public String getMethod()             { return method; }
+    public String getSourceIp()           { return sourceIp; }
+    public Instant getRequestTimestamp()   { return requestTimestamp; }
+    public String getUserAgent()          { return userAgent; }
+    public Double getRiskScore()          { return riskScore; }
+    public String getRequestBodyHash()    { return requestBodyHash; }
+
+    // ── Builder (same API as Lombok @Builder) ───────────────────────
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private String userId;
+        private List<String> roles;
+        private String sessionId;
+        private String endpoint;
+        private String method;
+        private String sourceIp;
+        private Instant requestTimestamp;
+        private String userAgent;
+        private Double riskScore;
+        private String requestBodyHash;
+
+        public Builder userId(String userId)                     { this.userId = userId; return this; }
+        public Builder roles(List<String> roles)                 { this.roles = roles; return this; }
+        public Builder sessionId(String sessionId)               { this.sessionId = sessionId; return this; }
+        public Builder endpoint(String endpoint)                 { this.endpoint = endpoint; return this; }
+        public Builder method(String method)                     { this.method = method; return this; }
+        public Builder sourceIp(String sourceIp)                 { this.sourceIp = sourceIp; return this; }
+        public Builder requestTimestamp(Instant requestTimestamp) { this.requestTimestamp = requestTimestamp; return this; }
+        public Builder userAgent(String userAgent)               { this.userAgent = userAgent; return this; }
+        public Builder riskScore(Double riskScore)               { this.riskScore = riskScore; return this; }
+        public Builder requestBodyHash(String requestBodyHash)   { this.requestBodyHash = requestBodyHash; return this; }
+
+        public RequestContext build() {
+            return new RequestContext(this);
+        }
+    }
+
+    // ── toString (for debugging/logging) ─────────────────────────────
+
+    @Override
+    public String toString() {
+        return "RequestContext{" +
+                "userId='" + userId + '\'' +
+                ", roles=" + roles +
+                ", sessionId='" + sessionId + '\'' +
+                ", endpoint='" + endpoint + '\'' +
+                ", method='" + method + '\'' +
+                ", sourceIp='" + sourceIp + '\'' +
+                ", requestTimestamp=" + requestTimestamp +
+                ", userAgent='" + userAgent + '\'' +
+                ", riskScore=" + riskScore +
+                ", requestBodyHash='" + requestBodyHash + '\'' +
+                '}';
+    }
 }

@@ -10,5 +10,10 @@ target/
 docker-compose.override.yml
 
 
-#Manual
-*.docx*.pem
+# Manual
+*.docx
+*.pem
+.agent/
+*.txt
+behavioral_risk_scorer_guide.md
+.vscode/

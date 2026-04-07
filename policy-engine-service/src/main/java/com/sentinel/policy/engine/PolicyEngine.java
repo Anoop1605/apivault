@@ -3,7 +3,7 @@ package com.sentinel.policy.engine;
 import com.sentinel.policy.model.PolicyDecision;
 import com.sentinel.policy.model.PolicyRule;
 import com.sentinel.policy.scorer.BehavioralRiskScorer;
-import com.sentinel.shared.dto.RequestContext;
+import com.sentinel.shared.context.RequestContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,7 +42,20 @@ public class PolicyEngine {
 
         // Calculate risk score
         double riskScore = riskScorer.computeRiskScore(requestContext);
-        requestContext.setRiskScore(riskScore);
+        
+        // Update requestContext with new risk score (immutable recreation)
+        requestContext = RequestContext.builder()
+                .userId(requestContext.getUserId())
+                .roles(requestContext.getRoles())
+                .sessionId(requestContext.getSessionId())
+                .endpoint(requestContext.getEndpoint())
+                .method(requestContext.getMethod())
+                .sourceIp(requestContext.getSourceIp())
+                .requestTimestamp(requestContext.getRequestTimestamp())
+                .userAgent(requestContext.getUserAgent())
+                .requestBodyHash(requestContext.getRequestBodyHash())
+                .riskScore(riskScore)
+                .build();
 
         // Sort policies by priority (higher priority first)
         List<PolicyRule> sortedPolicies = activePolicies.stream()
@@ -85,28 +98,26 @@ public class PolicyEngine {
      * Evaluate request against policies (legacy Map-based interface for backwards compatibility)
      */
     public PolicyDecision evaluate(Map<String, Object> attributes) {
-        RequestContext requestContext = RequestContext.builder()
-                .additionalAttributes(attributes)
-                .build();
+        RequestContext.Builder builder = RequestContext.builder();
 
         // Extract known fields if available
         if (attributes.containsKey("userId")) {
-            requestContext.setUserId((String) attributes.get("userId"));
+            builder.userId((String) attributes.get("userId"));
         }
         if (attributes.containsKey("roles")) {
-            requestContext.setRoles((List<String>) attributes.get("roles"));
+            builder.roles((List<String>) attributes.get("roles"));
         }
         if (attributes.containsKey("sourceIp")) {
-            requestContext.setSourceIp((String) attributes.get("sourceIp"));
+            builder.sourceIp((String) attributes.get("sourceIp"));
         }
         if (attributes.containsKey("endpoint")) {
-            requestContext.setEndpoint((String) attributes.get("endpoint"));
+            builder.endpoint((String) attributes.get("endpoint"));
         }
         if (attributes.containsKey("httpMethod")) {
-            requestContext.setHttpMethod((String) attributes.get("httpMethod"));
+            builder.method((String) attributes.get("httpMethod"));
         }
 
-        return evaluate(requestContext);
+        return evaluate(builder.build());
     }
 
     /**
