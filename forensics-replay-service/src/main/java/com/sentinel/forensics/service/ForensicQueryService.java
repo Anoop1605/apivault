@@ -71,16 +71,16 @@ public class ForensicQueryService {
         List<UUID> knownSessions = List.of(
                 UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001"),
                 UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002"),
-                UUID.fromString("cccccccc-0000-0000-0000-000000000003")
-        );
+                UUID.fromString("cccccccc-0000-0000-0000-000000000003"));
 
         List<SessionSummaryDTO> summaries = new java.util.ArrayList<>();
         for (UUID sessionId : knownSessions) {
             List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-            if (events == null || events.isEmpty()) continue;
+            if (events == null || events.isEmpty())
+                continue;
 
             long start = events.stream().mapToLong(EventDTO::getTimestampNs).min().orElse(0);
-            long end   = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
+            long end = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
             PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
             String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 
