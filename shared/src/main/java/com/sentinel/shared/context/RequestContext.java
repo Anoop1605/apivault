@@ -4,6 +4,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+
 /**
  * Immutable snapshot of an incoming API request.
  *
@@ -16,6 +19,7 @@ import java.util.Objects;
  * with JDK 25. Replaced with hand-written immutable class + builder.
  * Functionally identical — same getters, same builder API.
  */
+@JsonDeserialize(builder = RequestContext.Builder.class)
 public final class RequestContext {
 
     // ── Identity fields (extracted from the JWT by P1) ──────────────
@@ -90,6 +94,7 @@ public final class RequestContext {
         return new Builder();
     }
 
+    @JsonPOJOBuilder(withPrefix = "")
     public static final class Builder {
         private String userId;
         private List<String> roles;
