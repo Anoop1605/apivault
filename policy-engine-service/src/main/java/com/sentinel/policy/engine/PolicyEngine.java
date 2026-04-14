@@ -42,6 +42,8 @@ public class PolicyEngine {
 
         // Calculate risk score
         double riskScore = riskScorer.computeRiskScore(requestContext);
+        
+        // Update requestContext with new risk score (immutable recreation)
         requestContext = RequestContext.builder()
                 .userId(requestContext.getUserId())
                 .roles(requestContext.getRoles())
