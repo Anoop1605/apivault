@@ -21,10 +21,10 @@ import java.util.Map;
  * The final score is a weighted average of all judges.
  *
  * Here, our 4 "judges" are:
- *   1. IpReputationSignal  — "Has this IP been in trouble before?"
- *   2. RequestRateSignal   — "Is this user sending too many requests?"
- *   3. JwtAnomalySignal    — "Is this token being used from multiple IPs?"
- *   4. EndpointFreqSignal  — "Is this user hammering a single endpoint?"
+ * 1. IpReputationSignal — "Has this IP been in trouble before?"
+ * 2. RequestRateSignal — "Is this user sending too many requests?"
+ * 3. JwtAnomalySignal — "Is this token being used from multiple IPs?"
+ * 4. EndpointFreqSignal — "Is this user hammering a single endpoint?"
  *
  * Each judge scores 0.0 (safe) to 1.0 (max risk), with a weight of 0.25.
  * The final score is the weighted average, and if it exceeds 0.7 → FLAGGED.
@@ -37,45 +37,48 @@ import java.util.Map;
  * and injects them as a List<RiskSignal> (Dependency Injection).
  *
  * WHY is this powerful?
- *   - To add a 5th signal, just create a new @Component class that
- *     implements RiskSignal. The scorer picks it up automatically.
- *     Zero changes needed in this class. Open/Closed Principle in action.
- *   - To remove a signal, just delete new @Component (or remove @Component).
- *   - To change weights, adjust weight() in the individual signal.
- *   - In tests, you can inject mock signals to test the scorer in isolation.
+ * - To add a 5th signal, just create a new @Component class that
+ * implements RiskSignal. The scorer picks it up automatically.
+ * Zero changes needed in this class. Open/Closed Principle in action.
+ * - To remove a signal, just delete new @Component (or remove @Component).
+ * - To change weights, adjust weight() in the individual signal.
+ * - In tests, you can inject mock signals to test the scorer in isolation.
  *
  * INTERVIEW CONNECTION:
- *   "How does Strategy pattern differ from Template Method?"
- *   Strategy: composition — the scorer HAS signals, each independently replaceable.
- *   Template Method: inheritance — subclass overrides steps of a parent algorithm.
- *   Strategy is more flexible because signals are independent objects.
+ * "How does Strategy pattern differ from Template Method?"
+ * Strategy: composition — the scorer HAS signals, each independently
+ * replaceable.
+ * Template Method: inheritance — subclass overrides steps of a parent
+ * algorithm.
+ * Strategy is more flexible because signals are independent objects.
  *
  * ───────────────────────────────────────────────────────────────────
  * Performance
  * ───────────────────────────────────────────────────────────────────
  * The scorer itself does zero I/O. It just:
- *   1. Loops through 4 signals (each O(1) or O(k) in-process)
- *   2. Computes a weighted sum (O(n) where n = 4, so effectively O(1))
- *   3. Builds a small HashMap for breakdown (O(n) = O(4))
- *   4. Returns an immutable RiskScoreResult
+ * 1. Loops through 4 signals (each O(1) or O(k) in-process)
+ * 2. Computes a weighted sum (O(n) where n = 4, so effectively O(1))
+ * 3. Builds a small HashMap for breakdown (O(n) = O(4))
+ * 4. Returns an immutable RiskScoreResult
  *
  * Total: well within the ≤ 5ms p99 budget.
  */
-@Service  // @Service (not @Component) — semantic: this IS the business service for risk scoring
+@Service // @Service (not @Component) — semantic: this IS the business service for risk
+         // scoring
 public class BehavioralRiskScorer {
 
     // ────────────────────────────────────────────────────────────────
-    //  Dependencies — injected by Spring
+    // Dependencies — injected by Spring
     // ────────────────────────────────────────────────────────────────
 
     /**
      * All RiskSignal implementations, auto-discovered by Spring's component scan.
      *
      * WHY List<RiskSignal> and not individual fields?
-     *   - If we had: IpReputationSignal ipSignal; RequestRateSignal rateSignal; ...
-     *     then adding a 5th signal means editing this class (violates Open/Closed).
-     *   - With List<RiskSignal>, Spring injects ALL @Component beans that implement
-     *     RiskSignal. Adding a new signal = zero changes here.
+     * - If we had: IpReputationSignal ipSignal; RequestRateSignal rateSignal; ...
+     * then adding a 5th signal means editing this class (violates Open/Closed).
+     * - With List<RiskSignal>, Spring injects ALL @Component beans that implement
+     * RiskSignal. Adding a new signal = zero changes here.
      *
      * WHY final? The list reference is set once at construction and never changes.
      * The list contents are also fixed (Spring resolves all beans at startup).
@@ -86,10 +89,10 @@ public class BehavioralRiskScorer {
      * Constructor injection — the recommended way in Spring.
      *
      * WHY constructor injection over @Autowired on a field?
-     *   1. Makes dependencies explicit — you can see what this class needs
-     *   2. Enables immutability (final fields)
-     *   3. Classes are testable without Spring — just pass mocks in the constructor
-     *   4. Spring guarantees all dependencies exist before this object is created
+     * 1. Makes dependencies explicit — you can see what this class needs
+     * 2. Enables immutability (final fields)
+     * 3. Classes are testable without Spring — just pass mocks in the constructor
+     * 4. Spring guarantees all dependencies exist before this object is created
      *
      * @param signals all RiskSignal beans discovered by component scanning
      */
@@ -98,8 +101,16 @@ public class BehavioralRiskScorer {
     }
 
     // ────────────────────────────────────────────────────────────────
-    //  Core scoring method
+    // Core scoring method
     // ────────────────────────────────────────────────────────────────
+
+    /**
+     * VETO THRESHOLD (Absolute Override)
+     * If any single signal returns a score >= this threshold, it acts as an
+     * absolute veto. The weighted average is ignored, and the final score
+     * is forced to 1.0 (maximum risk). Prevents "Signal Dilution".
+     */
+    private static final double VETO_THRESHOLD = 0.8;
 
     /**
      * Legacy method for backwards compatibility with older PolicyEngine.
@@ -116,45 +127,57 @@ public class BehavioralRiskScorer {
      * Evaluates a request against all risk signals and produces a combined score.
      *
      * Algorithm:
-     *   1. For each signal: evaluate → get raw score, multiply by weight
-     *   2. Sum all (score × weight), sum all weights
-     *   3. Divide to get the weighted average
-     *   4. Build the signal breakdown map for forensics
-     *   5. Return RiskScoreResult (which auto-determines if flagged)
+     * 1. For each signal: evaluate → get raw score, multiply by weight
+     * 2. Sum all (score × weight), sum all weights
+     * 3. Build the signal breakdown map for forensics
+     * 4. Check VETO PATTERN: if any raw score >= 0.99, flag for override
+     * 5. Divide to get the weighted average
+     * 6. If veto triggered, override final score to 1.0
+     * 7. Return RiskScoreResult (which auto-determines if flagged)
      *
      * Weighted average formula:
-     *   finalScore = Σ(signalScore_i × weight_i) / Σ(weight_i)
+     * finalScore = Σ(signalScore_i × weight_i) / Σ(weight_i)
      *
      * With 4 equal-weight signals (0.25 each):
-     *   totalWeight = 0.25 × 4 = 1.0
-     *   finalScore = (s1 × 0.25 + s2 × 0.25 + s3 × 0.25 + s4 × 0.25) / 1.0
-     *              = average of all 4 scores
+     * totalWeight = 0.25 × 4 = 1.0
+     * finalScore = (s1 × 0.25 + s2 × 0.25 + s3 × 0.25 + s4 × 0.25) / 1.0
+     * = average of all 4 scores
      *
      * Example:
-     *   ip_reputation = 0.3, request_rate = 0.6, jwt_anomaly = 0.0, endpoint_freq = 0.8
-     *   finalScore = (0.3 + 0.6 + 0.0 + 0.8) × 0.25 / 1.0 = 0.425
-     *   flagged? 0.425 < 0.7 → false
+     * ip_reputation = 0.3, request_rate = 0.6, jwt_anomaly = 0.0, endpoint_freq =
+     * 0.8
+     * finalScore = (0.3 + 0.6 + 0.0 + 0.8) × 0.25 / 1.0 = 0.425
+     * flagged? 0.425 < 0.7 → false
+     *
+     * Veto Example (Signal Dilution Prevention):
+     * ip_reputation = 0.0, request_rate = 0.0, jwt_anomaly = 1.0, endpoint_freq =
+     * 0.0
+     * Weighted average = 0.25 (which is < 0.7, so it would mistakenly pass!)
+     * BUT jwt_anomaly >= 0.99 → Veto triggered → finalScore forced to 1.0
+     * (FLAGGED).
      *
      * WHY weighted average and not a simple sum?
-     *   - Sums can exceed 1.0 if multiple signals fire simultaneously.
-     *   - Weighted average always stays in [0.0, 1.0] — consistent with our contract.
-     *   - Weights let us make some signals more important than others later
-     *     (e.g. jwt_anomaly → 0.4 if we decide session hijacking is more critical).
+     * - Sums can exceed 1.0 if multiple signals fire simultaneously.
+     * - Weighted average always stays in [0.0, 1.0] — consistent with our contract.
+     * - Weights let us make some signals more important than others later
+     * (e.g. jwt_anomaly → 0.4 if we decide session hijacking is more critical).
      *
      * @param ctx the request context to score
-     * @return a RiskScoreResult with the overall score, flagged status, and breakdown
+     * @return a RiskScoreResult with the overall score, flagged status, and
+     *         breakdown
      */
     public RiskScoreResult score(RequestContext ctx) {
 
         double weightedSum = 0.0;
         double totalWeight = 0.0;
         Map<String, Double> breakdown = new HashMap<>();
+        boolean vetoTriggered = false;
 
         for (RiskSignal signal : signals) {
 
             // Each signal evaluates independently — no signal knows about the others
             double rawScore = signal.evaluate(ctx);
-            double weight   = signal.weight();
+            double weight = signal.weight();
 
             // Accumulate for weighted average
             weightedSum += rawScore * weight;
@@ -162,6 +185,11 @@ public class BehavioralRiskScorer {
 
             // Record for forensics — P4 needs to know WHY a request was flagged
             breakdown.put(signal.name(), rawScore);
+
+            // Check for Veto Pattern (Signal Dilution Prevention)
+            if (rawScore >= VETO_THRESHOLD) {
+                vetoTriggered = true;
+            }
         }
 
         // Guard against division by zero (shouldn't happen with 4 signals,
@@ -169,6 +197,11 @@ public class BehavioralRiskScorer {
         double finalScore = (totalWeight > 0.0)
                 ? weightedSum / totalWeight
                 : 0.0;
+
+        // Apply the veto if any single signal was catastrophic
+        if (vetoTriggered) {
+            finalScore = 1.0;
+        }
 
         // Clamp to [0.0, 1.0] — belt-and-suspenders safety
         finalScore = Math.min(1.0, Math.max(0.0, finalScore));
