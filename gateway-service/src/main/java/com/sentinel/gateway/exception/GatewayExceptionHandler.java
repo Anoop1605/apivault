@@ -24,6 +24,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.web.server.ResponseStatusException;
+
 @Slf4j
 @Component
 @Order(-1)
@@ -32,6 +35,7 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
 
     private final ObjectMapper objectMapper;
     private final WebClient.Builder webClientBuilder;
+    private final MeterRegistry meterRegistry;
 
     @Value("${sentinel.event-store.url:http://localhost:8081}")
     private String eventStoreUrl;
@@ -46,13 +50,19 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
         HttpStatus status;
         String errorMessage;
 
-        if (ex instanceof ConnectException || ex.getMessage().contains("Connection refused")) {
+        if (ex instanceof ResponseStatusException) {
+            status = HttpStatus.valueOf(((ResponseStatusException) ex).getStatusCode().value());
+            errorMessage = ((ResponseStatusException) ex).getReason();
+            if (errorMessage == null) errorMessage = ex.getMessage();
+        } else if (ex instanceof ConnectException || (ex.getMessage() != null && ex.getMessage().contains("Connection refused"))) {
             status = HttpStatus.BAD_GATEWAY;
             errorMessage = "Upstream service is currently unavailable or refusing connection";
         } else {
             status = HttpStatus.SERVICE_UNAVAILABLE;
             errorMessage = "Service unavailable: " + ex.getMessage();
         }
+
+        meterRegistry.counter("gateway.error.count", "status", String.valueOf(status.value())).increment();
 
         // Emit GATEWAY_ERROR event
         emitGatewayErrorEvent(exchange, status, ex.getMessage()).subscribe();
