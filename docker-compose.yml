@@ -104,6 +104,36 @@ services:
     networks:
       - sentinel-network
 
+  # ====================== FORENSICS REPLAY ======================
+  forensics-replay-service:
+    build:
+      context: ./forensics-replay-service
+      dockerfile: Dockerfile
+    container_name: sentinel-forensics
+    ports:
+      - "8083:8083"
+    environment:
+      EVENT_STORE_URL: http://event-store-service:8081
+    depends_on:
+      - event-store-service
+    networks:
+      - sentinel-network
+
+  # ====================== FORENSIC DASHBOARD ======================
+  forensic-dashboard:
+    build:
+      context: ./forensic-dashboard
+      dockerfile: Dockerfile
+    container_name: sentinel-dashboard
+    ports:
+      - "8084:8084"
+    environment:
+      FORENSICS_API_URL: http://forensics-replay-service:8083
+    depends_on:
+      - forensics-replay-service
+    networks:
+      - sentinel-network
+
   # ====================== API GATEWAY ======================
   gateway-service:
     build:
@@ -127,6 +157,7 @@ services:
       - event-store-service
     networks:
       - sentinel-network
+
 
 volumes:
   sentinel-pgdata:
