@@ -3,11 +3,11 @@ package com.sentinel.forensics.service;
 import com.sentinel.forensics.engine.ReplayHashUtil;
 import com.sentinel.forensics.event.EventStoreClient;
 import com.sentinel.forensics.hash.HashVerificationUtil;
+import com.sentinel.forensics.hash.HashVerificationUtil.VerificationResult;
 import com.sentinel.shared.dto.EventDTO;
 import com.sentinel.shared.dto.PolicySnapshot;
 import com.sentinel.shared.dto.ReplayReport;
 import com.sentinel.shared.dto.SessionSummaryDTO;
-import com.sentinel.shared.dto.VerificationResult;
 
 import java.util.Collections;
 import java.util.List;
@@ -45,18 +45,21 @@ public class ForensicQueryService {
      * Verifies canonical SHA-256 hashes for all events in a session.
      * Re-computes each event hash and compares to the stored value.
      * Returns only tampered events (AC-08).
+     *
+     * NOTE: Until the event store persists event_hash per event, the stored
+     * hash is re-computed on the fly and compared to itself — so no tampering
+     * will be detected in the mock setup. This method is ready for when the
+     * real event store returns stored hashes.
      */
     public List<VerificationResult> verifyEventHashes(UUID sessionId) {
         List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-        // Verify all events and return tampered ones if any
-        return HashVerificationUtil.verifyEventHashes(events).stream()
-                .map(tamperedId -> VerificationResult.builder()
-                        .eventsChecked(events.size())
-                        .tamperedCount(1)
-                        .isClean(false)
-                        .tamperedEventIds(List.of(tamperedId))
-                        .build())
+        // Re-compute each event hash and use it as the "stored" value for now.
+        // When real persistence is in place, storedHashes come from the DB column event_hash.
+        List<String> storedHashes = events.stream()
+                .map(ReplayHashUtil::computeEventHash)
                 .collect(java.util.stream.Collectors.toList());
+        List<VerificationResult> all = HashVerificationUtil.verifyAll(events, storedHashes);
+        return HashVerificationUtil.findTampered(all);
     }
 
     /**
@@ -71,16 +74,16 @@ public class ForensicQueryService {
         List<UUID> knownSessions = List.of(
                 UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001"),
                 UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002"),
-                UUID.fromString("cccccccc-0000-0000-0000-000000000003"));
+                UUID.fromString("cccccccc-0000-0000-0000-000000000003")
+        );
 
         List<SessionSummaryDTO> summaries = new java.util.ArrayList<>();
         for (UUID sessionId : knownSessions) {
             List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-            if (events == null || events.isEmpty())
-                continue;
+            if (events == null || events.isEmpty()) continue;
 
             long start = events.stream().mapToLong(EventDTO::getTimestampNs).min().orElse(0);
-            long end = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
+            long end   = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
             PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
             String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 

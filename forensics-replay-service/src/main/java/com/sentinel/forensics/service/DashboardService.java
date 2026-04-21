@@ -38,14 +38,14 @@ public class DashboardService {
         for (int i = 0; i < events.size(); i++) {
             EventDTO event = events.get(i);
             EventType eventType = types[i % types.length];
-            // Default ALLOW; DENY is flagged as an alert in getAlerts()
-            Decision decision = (eventType == EventType.ATTACK) ? Decision.DENY : Decision.ALLOW;
+            // Default ALLOW; BLOCK is flagged as an alert in getAlerts()
+            Decision decision = (eventType == EventType.ATTACK) ? Decision.BLOCK : Decision.ALLOW;
             timeline.add(new TimelineEventDTO(
                     event.getSessionId(),
                     event.getTimestampNs(),
                     eventType,
                     decision,
-                    decision == Decision.DENY ? "RULE_ATTACK_DETECTED" : null
+                    decision == Decision.BLOCK ? "RULE_ATTACK_DETECTED" : null
             ));
         }
 
@@ -73,31 +73,31 @@ public class DashboardService {
         // Determine which rules matched by scanning the timeline
         List<TimelineEventDTO> timeline = getSessionTimeline(sessionId);
         List<String> rulesMatched = new ArrayList<>();
-        boolean hasDeny = false;
+        boolean hasBlock = false;
         for (TimelineEventDTO step : timeline) {
             if (step.getRuleMatched() != null && !rulesMatched.contains(step.getRuleMatched())) {
                 rulesMatched.add(step.getRuleMatched());
             }
-            if (step.getDecision() == Decision.DENY) {
-                hasDeny = true;
+            if (step.getDecision() == Decision.BLOCK) {
+                hasBlock = true;
             }
         }
 
-        Decision finalDecision = hasDeny ? Decision.DENY : Decision.ALLOW;
+        Decision finalDecision = hasBlock ? Decision.BLOCK : Decision.ALLOW;
         String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 
         return new PolicyTraceDTO(sessionId, rulesEvaluated, rulesMatched, finalDecision, hash);
     }
 
     /**
-     * Returns alerts for a session — events that resulted in a DENY or FLAG decision.
+     * Returns alerts for a session — events that resulted in a BLOCK or REVIEW decision.
      */
     public List<AlertDTO> getAlerts(UUID sessionId) {
         List<TimelineEventDTO> timeline = getSessionTimeline(sessionId);
         List<AlertDTO> alerts = new ArrayList<>();
 
         for (TimelineEventDTO step : timeline) {
-            if (step.getDecision() == Decision.DENY) {
+            if (step.getDecision() == Decision.BLOCK) {
                 alerts.add(new AlertDTO(
                         step.getSessionId(),
                         step.getTimestampNs(),
@@ -105,7 +105,7 @@ public class DashboardService {
                         AlertDTO.Severity.HIGH,
                         "Event blocked by policy: " + step.getRuleMatched()
                 ));
-            } else if (step.getDecision() == Decision.FLAG) {
+            } else if (step.getDecision() == Decision.REVIEW) {
                 alerts.add(new AlertDTO(
                         step.getSessionId(),
                         step.getTimestampNs(),

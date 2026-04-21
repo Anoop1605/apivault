@@ -1,8 +1,6 @@
 package com.sentinel.forensics.event;
 
 import com.sentinel.shared.dto.EventDTO;
-import com.sentinel.shared.enums.Decision;
-import com.sentinel.shared.enums.EventType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,10 +38,10 @@ public class MockEventStoreClient implements EventStoreClient {
     // ------------------------------------------------------------------
     private List<EventDTO> normalSession() {
         return new ArrayList<>(List.of(
-            event(SESSION_NORMAL, 1707825600000000000L, "LOGIN",  "ALLOW", "ALLOW_ALL",  "GET",    "/auth/login",      "user-001", 0.1),
-            event(SESSION_NORMAL, 1707825601000000000L, "ACCESS", "ALLOW", "ALLOW_GET",  "GET",    "/api/users",       "user-001", 0.1),
-            event(SESSION_NORMAL, 1707825602000000000L, "ACCESS", "ALLOW", "ALLOW_GET",  "GET",    "/api/payments",    "user-001", 0.1),
-            event(SESSION_NORMAL, 1707825603000000000L, "LOGOUT", "ALLOW", "ALLOW_ALL",  "GET",    "/auth/logout",     "user-001", 0.1)
+            event(SESSION_NORMAL, 1707825600000000000L, "LOGIN",  "ALLOW", "ALLOW_ALL",  "GET",    "/auth/login",      "user-001", 0.1f),
+            event(SESSION_NORMAL, 1707825601000000000L, "ACCESS", "ALLOW", "ALLOW_GET",  "GET",    "/api/users",       "user-001", 0.1f),
+            event(SESSION_NORMAL, 1707825602000000000L, "ACCESS", "ALLOW", "ALLOW_GET",  "GET",    "/api/payments",    "user-001", 0.1f),
+            event(SESSION_NORMAL, 1707825603000000000L, "LOGOUT", "ALLOW", "ALLOW_ALL",  "GET",    "/auth/logout",     "user-001", 0.1f)
         ));
     }
 
@@ -52,11 +50,11 @@ public class MockEventStoreClient implements EventStoreClient {
     // ------------------------------------------------------------------
     private List<EventDTO> violationSession() {
         return new ArrayList<>(List.of(
-            event(SESSION_VIOLATION, 1707825700000000000L, "LOGIN",  "ALLOW", "ALLOW_ALL",   "POST",   "/auth/login",              "user-002", 0.2),
-            event(SESSION_VIOLATION, 1707825701000000000L, "ACCESS", "ALLOW", "ALLOW_GET",   "GET",    "/api/admin/users",         "user-002", 0.3),
-            event(SESSION_VIOLATION, 1707825702000000000L, "ACCESS", "DENY",  "BLOCK_DELETE","DELETE", "/api/payments/txn-9921",   "user-002", 0.5),
-            event(SESSION_VIOLATION, 1707825703000000000L, "ACCESS", "DENY",  "BLOCK_DELETE","DELETE", "/api/payments/txn-9921",   "user-002", 0.6),
-            event(SESSION_VIOLATION, 1707825704000000000L, "LOGOUT", "ALLOW", "ALLOW_ALL",   "POST",   "/auth/logout",             "user-002", 0.2)
+            event(SESSION_VIOLATION, 1707825700000000000L, "LOGIN",  "ALLOW", "ALLOW_ALL",   "POST",   "/auth/login",              "user-002", 0.2f),
+            event(SESSION_VIOLATION, 1707825701000000000L, "ACCESS", "ALLOW", "ALLOW_GET",   "GET",    "/api/admin/users",         "user-002", 0.3f),
+            event(SESSION_VIOLATION, 1707825702000000000L, "ACCESS", "BLOCK", "BLOCK_DELETE","DELETE", "/api/payments/txn-9921",   "user-002", 0.5f),
+            event(SESSION_VIOLATION, 1707825703000000000L, "ACCESS", "BLOCK", "BLOCK_DELETE","DELETE", "/api/payments/txn-9921",   "user-002", 0.6f),
+            event(SESSION_VIOLATION, 1707825704000000000L, "LOGOUT", "ALLOW", "ALLOW_ALL",   "POST",   "/auth/logout",             "user-002", 0.2f)
         ));
     }
 
@@ -66,12 +64,12 @@ public class MockEventStoreClient implements EventStoreClient {
     // ------------------------------------------------------------------
     private List<EventDTO> attackSession() {
         return new ArrayList<>(List.of(
-            event(SESSION_ATTACK, 1707825800000000000L, "ACCESS", "ALLOW", "ALLOW_GET",   "GET",    "/api/users",               null,       0.4),
-            event(SESSION_ATTACK, 1707825800100000000L, "ACCESS", "ALLOW", "ALLOW_GET",   "GET",    "/api/admin",               null,       0.6),
-            event(SESSION_ATTACK, 1707825800200000000L, "ACCESS", "ALLOW", "ALLOW_GET",   "GET",    "/api/payments?id=1 OR 1=1",null,       0.7),
-            event(SESSION_ATTACK, 1707825800300000000L, "ATTACK", "DENY",  "BLOCK_ATTACK","DELETE", "/api/admin/users/delete-all",null,     0.85),
-            event(SESSION_ATTACK, 1707825800400000000L, "ATTACK", "DENY",  "BLOCK_ATTACK","POST",   "/api/admin/roles/assign",  null,       0.85),
-            event(SESSION_ATTACK, 1707825800500000000L, "ATTACK", "DENY",  "BLOCK_DELETE","DELETE", "/api/payments/delete-all", null,       0.9)
+            event(SESSION_ATTACK, 1707825800000000000L, "ACCESS", "ALLOW", "ALLOW_GET",   "GET",    "/api/users",               null,       0.4f),
+            event(SESSION_ATTACK, 1707825800100000000L, "ACCESS", "ALLOW", "ALLOW_GET",   "GET",    "/api/admin",               null,       0.6f),
+            event(SESSION_ATTACK, 1707825800200000000L, "ACCESS", "ALLOW", "ALLOW_GET",   "GET",    "/api/payments?id=1 OR 1=1",null,       0.7f),
+            event(SESSION_ATTACK, 1707825800300000000L, "ATTACK", "BLOCK", "BLOCK_ATTACK","DELETE", "/api/admin/users/delete-all",null,     0.85f),
+            event(SESSION_ATTACK, 1707825800400000000L, "ATTACK", "BLOCK", "BLOCK_ATTACK","POST",   "/api/admin/roles/assign",  null,       0.85f),
+            event(SESSION_ATTACK, 1707825800500000000L, "ATTACK", "BLOCK", "BLOCK_DELETE","DELETE", "/api/payments/delete-all", null,       0.9f)
         ));
     }
 
@@ -80,9 +78,9 @@ public class MockEventStoreClient implements EventStoreClient {
     // ------------------------------------------------------------------
     private List<EventDTO> genericEvents(UUID sessionId) {
         return new ArrayList<>(List.of(
-            event(sessionId, 1000L, "LOGIN",  "ALLOW", "ALLOW_ALL", "GET", "/auth/login",  "user-generic", 0.1),
-            event(sessionId, 2000L, "ACCESS", "ALLOW", "ALLOW_GET", "GET", "/api/resource","user-generic", 0.1),
-            event(sessionId, 3000L, "LOGOUT", "ALLOW", "ALLOW_ALL", "GET", "/auth/logout", "user-generic", 0.1)
+            event(sessionId, 1000L, "LOGIN",  "ALLOW", "ALLOW_ALL", "GET", "/auth/login",  "user-generic", 0.1f),
+            event(sessionId, 2000L, "ACCESS", "ALLOW", "ALLOW_GET", "GET", "/api/resource","user-generic", 0.1f),
+            event(sessionId, 3000L, "LOGOUT", "ALLOW", "ALLOW_ALL", "GET", "/auth/logout", "user-generic", 0.1f)
         ));
     }
 
@@ -90,15 +88,15 @@ public class MockEventStoreClient implements EventStoreClient {
     // Builder
     // ------------------------------------------------------------------
     private EventDTO event(UUID sessionId, long timestampNs,
-                           String eventTypeStr, String decisionStr,
+                           String eventType, String decision,
                            String policyRuleId, String httpMethod,
-                           String endpoint, String userId, double riskScore) {
+                           String endpoint, String userId, float riskScore) {
         EventDTO e = new EventDTO();
         e.setEventId(UUID.randomUUID());
         e.setSessionId(sessionId);
         e.setTimestampNs(timestampNs);
-        e.setEventType(EventType.valueOf(eventTypeStr));
-        e.setDecision(Decision.valueOf(decisionStr));
+        e.setEventType(eventType);
+        e.setDecision(decision);
         e.setPolicyRuleId(policyRuleId);
         e.setPolicyRuleVersion(1);
         e.setHttpMethod(httpMethod);

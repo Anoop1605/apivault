@@ -52,7 +52,6 @@ public class StepDecision {
     public void setRuleMatched(String ruleMatched) { this.ruleMatched = ruleMatched; }
 
     public boolean isDiverged() { return diverged; }
-    public void setDiverged(boolean diverged) { this.diverged = diverged; }
 
     private void updateDiverged() {
         this.diverged = originalDecision != null
@@ -60,4 +59,3 @@ public class StepDecision {
                 && !originalDecision.equals(simulatedDecision);
     }
 }
-

@@ -1,226 +1,69 @@
 <!DOCTYPE html>
-<html class="dark" lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="layout :: ~{
-    *, main/(@content)
-}">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Session Explorer - NYXSEC</title>
+    <meta charset="UTF-8"/>
+    <title>Sentinel — Session Explorer</title>
+    <style>
+        body { font-family: monospace; background: #0d1117; color: #c9d1d9; margin: 0; padding: 24px; }
+        h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+        nav { margin-bottom: 20px; }
+        nav a { color: #58a6ff; margin-right: 16px; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .error { color: #f85149; background: #1c0a0a; padding: 10px; border-radius: 4px; margin: 12px 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th { background: #161b22; color: #8b949e; text-align: left; padding: 10px 12px; font-size: 12px; text-transform: uppercase; }
+        td { padding: 10px 12px; border-bottom: 1px solid #21262d; font-size: 13px; }
+        tr:hover td { background: #161b22; }
+        .badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+        .badge-events { background: #1f3a5f; color: #58a6ff; }
+        a.link { color: #58a6ff; text-decoration: none; }
+        a.link:hover { text-decoration: underline; }
+        .empty { color: #8b949e; text-align: center; padding: 48px; }
+    </style>
 </head>
 <body>
-<div th:def="content">
-    <!-- Header Section -->
-    <div class="flex justify-between items-end mb-8">
-        <div>
-            <h2 class="text-3xl font-extrabold tracking-tight text-on-surface">Session Explorer</h2>
-            <p class="text-on-surface-variant text-sm mt-1">Analyze user sessions and behavioral patterns</p>
-        </div>
-        <div class="flex gap-2">
-            <span class="px-3 py-1 bg-surface-container rounded-full text-[10px] font-bold text-on-surface-variant uppercase tracking-widest border border-outline-variant/5">Active Sessions</span>
-        </div>
-    </div>
+<nav>
+    <a href="/dashboard">Sessions</a>
+    <a href="/dashboard/alerts">Alerts</a>
+</nav>
+<h1>Session Explorer</h1>
 
-    <!-- Filter Controls -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Status</p>
-            <select class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm">
-                <option>All Sessions</option>
-                <option>Active</option>
-                <option>Idle</option>
-                <option>Flagged</option>
-            </select>
-        </div>
-        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Risk Level</p>
-            <select class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm">
-                <option>All Levels</option>
-                <option>Critical</option>
-                <option>High</option>
-                <option>Medium</option>
-                <option>Low</option>
-            </select>
-        </div>
-        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Time Range</p>
-            <select class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm">
-                <option>Last 24 Hours</option>
-                <option>Last 7 Days</option>
-                <option>Last 30 Days</option>
-                <option>Custom Range</option>
-            </select>
-        </div>
-        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Sort By</p>
-            <select class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm">
-                <option>Risk Score</option>
-                <option>Event Count</option>
-                <option>Time Created</option>
-                <option>Duration</option>
-            </select>
-        </div>
-        <div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Search</p>
-            <input class="w-full bg-surface-container border border-outline-variant/10 rounded-lg px-3 py-2 text-on-surface text-sm" placeholder="Session ID..." type="text"/>
-        </div>
-    </div>
+<div th:if="${error}" class="error" th:text="${error}"></div>
 
-    <!-- Sessions Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <!-- Session Card 1 -->
-        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <h3 class="text-lg font-bold text-on-surface">SES-8921-X9</h3>
-                    <p class="text-xs text-on-surface-variant mt-1">ID: 550e8400-e29b-41d4-a716-446655440000</p>
-                </div>
-                <span class="px-3 py-1 bg-error/10 text-error rounded-full text-[10px] font-bold uppercase">High Risk</span>
-            </div>
-            <div class="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-outline-variant/5">
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">IP Address</p>
-                    <p class="text-on-surface font-mono text-sm">192.168.1.45</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Max Risk</p>
-                    <p class="text-on-surface font-bold text-sm">88</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Events</p>
-                    <p class="text-on-surface font-bold text-sm">142</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Denied</p>
-                    <p class="text-error font-bold text-sm">12</p>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button class="flex-1 px-3 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all text-center">View Details</button>
-                <button class="flex-1 px-3 py-2 bg-surface-container-high border border-outline-variant/10 text-on-surface rounded font-semibold text-xs hover:bg-surface-container-highest transition-all text-center">Timeline</button>
-            </div>
-        </div>
+<table th:unless="${#lists.isEmpty(sessions)}">
+    <thead>
+        <tr>
+            <th>Session ID</th>
+            <th>Events</th>
+            <th>Start (ns)</th>
+            <th>End (ns)</th>
+            <th>Hash (truncated)</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="s : ${sessions}">
+            <td style="font-size:11px;" th:text="${s['sessionId']}">-</td>
+            <td><span class="badge badge-events" th:text="${s['eventCount']}">0</span></td>
+            <td th:text="${s['startTimestampNs']}">-</td>
+            <td th:text="${s['endTimestampNs']}">-</td>
+            <td style="font-size:11px; color:#8b949e;"
+                th:text="${s['hash'] != null ? #strings.substring(s['hash'], 0, 16) + '...' : '-'}">-</td>
+            <td>
+                <a class="link" th:href="@{/dashboard/sessions/{id}/timeline(id=${s['sessionId']})}">Timeline</a>
+                &nbsp;|&nbsp;
+                <a class="link" th:href="@{/dashboard/sessions/{id}/policy-trace(id=${s['sessionId']})}">Policy Trace</a>
+                &nbsp;|&nbsp;
+                <a class="link" th:href="@{/dashboard/alerts/{id}(id=${s['sessionId']})}">Alerts</a>
+                &nbsp;|&nbsp;
+                <a class="link" th:href="@{/dashboard/sessions/{id}/whatif(id=${s['sessionId']})}">What-If</a>
+            </td>
+        </tr>
+    </tbody>
+</table>
 
-        <!-- Session Card 2 -->
-        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <h3 class="text-lg font-bold text-on-surface">SES-4412-B2</h3>
-                    <p class="text-xs text-on-surface-variant mt-1">ID: 6ba7b810-9dad-11d1-80b4-00c04fd430c8</p>
-                </div>
-                <span class="px-3 py-1 bg-secondary/10 text-secondary rounded-full text-[10px] font-bold uppercase">Low Risk</span>
-            </div>
-            <div class="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-outline-variant/5">
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">IP Address</p>
-                    <p class="text-on-surface font-mono text-sm">192.168.1.50</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Max Risk</p>
-                    <p class="text-on-surface font-bold text-sm">32</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Events</p>
-                    <p class="text-on-surface font-bold text-sm">56</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Denied</p>
-                    <p class="text-secondary font-bold text-sm">0</p>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button class="flex-1 px-3 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all text-center">View Details</button>
-                <button class="flex-1 px-3 py-2 bg-surface-container-high border border-outline-variant/10 text-on-surface rounded font-semibold text-xs hover:bg-surface-container-highest transition-all text-center">Timeline</button>
-            </div>
-        </div>
-
-        <!-- Session Card 3 -->
-        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <h3 class="text-lg font-bold text-on-surface">SES-0091-R4</h3>
-                    <p class="text-xs text-on-surface-variant mt-1">ID: 9125a8dc-52ee-365b-a9c6-abb6b487c731</p>
-                </div>
-                <span class="px-3 py-1 bg-secondary/10 text-secondary rounded-full text-[10px] font-bold uppercase">Low Risk</span>
-            </div>
-            <div class="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-outline-variant/5">
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">IP Address</p>
-                    <p class="text-on-surface font-mono text-sm">192.168.1.60</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Max Risk</p>
-                    <p class="text-on-surface font-bold text-sm">12</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Events</p>
-                    <p class="text-on-surface font-bold text-sm">12</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Denied</p>
-                    <p class="text-secondary font-bold text-sm">0</p>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button class="flex-1 px-3 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all text-center">View Details</button>
-                <button class="flex-1 px-3 py-2 bg-surface-container-high border border-outline-variant/10 text-on-surface rounded font-semibold text-xs hover:bg-surface-container-highest transition-all text-center">Timeline</button>
-            </div>
-        </div>
-
-        <!-- Session Card 4 -->
-        <div class="bg-surface-container rounded-xl p-6 border border-outline-variant/5 hover:border-primary/20 transition-all cursor-pointer">
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <h3 class="text-lg font-bold text-on-surface">SES-7234-M8</h3>
-                    <p class="text-xs text-on-surface-variant mt-1">ID: c9eb0a5c-2a25-4a8f-b8c7-3d0e6f7a8b9c</p>
-                </div>
-                <span class="px-3 py-1 bg-tertiary/10 text-tertiary rounded-full text-[10px] font-bold uppercase">Medium Risk</span>
-            </div>
-            <div class="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-outline-variant/5">
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">IP Address</p>
-                    <p class="text-on-surface font-mono text-sm">192.168.1.75</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Max Risk</p>
-                    <p class="text-on-surface font-bold text-sm">54</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Events</p>
-                    <p class="text-on-surface font-bold text-sm">88</p>
-                </div>
-                <div>
-                    <p class="text-on-surface-variant text-xs uppercase tracking-wider mb-1">Denied</p>
-                    <p class="text-tertiary font-bold text-sm">3</p>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button class="flex-1 px-3 py-2 bg-primary text-on-primary rounded font-semibold text-xs hover:bg-primary/90 transition-all text-center">View Details</button>
-                <button class="flex-1 px-3 py-2 bg-surface-container-high border border-outline-variant/10 text-on-surface rounded font-semibold text-xs hover:bg-surface-container-highest transition-all text-center">Timeline</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Statistics -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Total Sessions</p>
-            <h3 class="text-2xl font-bold text-on-surface">1,284</h3>
-            <p class="text-xs text-on-surface-variant mt-2">+3.2% from last period</p>
-        </div>
-        <div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">High Risk</p>
-            <h3 class="text-2xl font-bold text-error">142</h3>
-            <p class="text-xs text-on-surface-variant mt-2">Requires attention</p>
-        </div>
-        <div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Active Now</p>
-            <h3 class="text-2xl font-bold text-secondary">87</h3>
-            <p class="text-xs text-on-surface-variant mt-2">In real-time</p>
-        </div>
-        <div class="bg-surface-container-low p-6 rounded-xl border border-outline-variant/5">
-            <p class="text-on-surface-variant text-xs font-medium uppercase tracking-wider mb-2">Avg Events</p>
-            <h3 class="text-2xl font-bold text-primary">42.3</h3>
-            <p class="text-xs text-on-surface-variant mt-2">Per session</p>
-        </div>
-    </div>
+<div class="empty" th:if="${#lists.isEmpty(sessions)}">
+    No sessions found. Ensure forensics-replay-service is running on port 8083.
 </div>
 </body>
 </html>
