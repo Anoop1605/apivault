@@ -11,8 +11,8 @@ public class Event {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID eventId;
-
-    private Instant timestamp;
+    @Column(name="timestamp_ns", nullable = false)
+    private Long timestampNs;
     private String eventType;
     private UUID sessionId;
     private String userId;
@@ -32,8 +32,8 @@ public class Event {
     public UUID getEventId() { return eventId; }
     public void setEventId(UUID eventId) { this.eventId = eventId; }
 
-    public Instant getTimestamp() { return timestamp; }
-    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
+    public Long getTimestampNs() { return timestampNs; }
+    public void setTimestampNs(Long timestampNs) { this.timestampNs = timestampNs; }
 
     public String getEventType() { return eventType; }
     public void setEventType(String eventType) { this.eventType = eventType; }

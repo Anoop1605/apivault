@@ -13,11 +13,12 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
 
     List<Event> findByRiskScoreGreaterThan(Double score);
 
-    Event findTopByOrderByTimestampDesc();
+    Event findTopByOrderByTimestampNsDesc();
 
-    List<Event> findAllByOrderByTimestampAsc();
+    List<Event> findAllByOrderByTimestampNsAsc();
 
-    // 🔥 TIME FILTER
-    List<Event> findByTimestampBetween(Instant start, Instant end);
+    //  TIME FILTER
+    List<Event> findByTimestampNsBetween(Long startNs, Long endNs);
     List<Event> findByEndpoint(String endpoint);
+    List<Event> findBySessionIdOrderByTimestampNsAsc(UUID sessionId);
 }

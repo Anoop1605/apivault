@@ -3,7 +3,6 @@ package com.apivault.eventstore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,15 +12,30 @@ public class EventService {
     @Autowired
     private EventRepository eventRepository;
 
-    // 🔥 SAVE EVENT (HASH CHAIN)
+    // 🔹 COMMON HASH BUILDER (PRD CORRECT)
+    private String buildData(Event e) {
+        return String.valueOf(e.getPreviousHash()) +
+               String.valueOf(e.getTimestampNs()) +
+               String.valueOf(e.getUserId()) +
+               String.valueOf(e.getEndpoint()) +
+               String.valueOf(e.getHttpMethod()) +
+               String.valueOf(e.getSourceIp()) +
+               String.valueOf(e.getDecision()) +
+               String.valueOf(e.getRiskScore());
+    }
+
+    // 🔹 SAVE EVENT (HASH CHAIN)
     public Event saveEvent(Event event) {
 
-        event.setTimestamp(Instant.now());
+        // ✅ PRD: timestamp as long (nanoseconds style)
+        event.setTimestampNs(System.currentTimeMillis() * 1_000_000);
 
+        // ✅ sessionId
         if (event.getSessionId() == null) {
             event.setSessionId(UUID.randomUUID());
         }
 
+        // ✅ default values
         if (event.getEventType() == null) {
             event.setEventType("REQUEST_RECEIVED");
         }
@@ -29,7 +43,7 @@ public class EventService {
         event.setGatewayVersion("v1");
 
         // 🔹 GET LAST EVENT
-        Event lastEvent = eventRepository.findTopByOrderByTimestampDesc();
+        Event lastEvent = eventRepository.findTopByOrderByTimestampNsDesc();
 
         String previousHash = (lastEvent != null)
                 ? lastEvent.getCurrentHash()
@@ -37,15 +51,8 @@ public class EventService {
 
         event.setPreviousHash(previousHash);
 
-        // 🔥 HASH DATA (WITH TIMESTAMP — IMPORTANT FIX)
-        String data = previousHash +
-                event.getTimestamp().toString() +
-                event.getUserId() +
-                event.getEndpoint() +
-                event.getHttpMethod() +
-                event.getSourceIp() +
-                event.getDecision() +
-                event.getRiskScore();
+        // 🔹 BUILD HASH DATA
+        String data = buildData(event);
 
         String currentHash = HashUtil.generateHash(data);
 
@@ -73,17 +80,26 @@ public class EventService {
     public List<Event> getHighRiskEvents(Double score) {
         return eventRepository.findByRiskScoreGreaterThan(score);
     }
-    public List<Event> getEventsByTimeRange(Instant start, Instant end) {
-    return eventRepository.findByTimestampBetween(start, end);
-}
-public List<Event> getEventsByEndpoint(String endpoint) {
-    return eventRepository.findByEndpoint(endpoint);
-}
 
-    // 🔐 VERIFY CHAIN (FINAL CORRECT VERSION)
+    // 🔍 FILTER BY ENDPOINT
+    public List<Event> getEventsByEndpoint(String endpoint) {
+        return eventRepository.findByEndpoint(endpoint);
+    }
+
+    // 🔍 SESSION TIMELINE
+    public List<Event> getSessionTimeline(String sessionId) {
+        return eventRepository.findBySessionIdOrderByTimestampNsAsc(UUID.fromString(sessionId));
+    }
+
+    // 🔍 TIME RANGE
+    public List<Event> getEventsByTimeRange(long startNs, long endNs) {
+        return eventRepository.findByTimestampNsBetween(startNs, endNs);
+    }
+
+    // 🔐 VERIFY CHAIN
     public boolean verifyChain() {
 
-        List<Event> events = eventRepository.findAllByOrderByTimestampAsc();
+        List<Event> events = eventRepository.findAllByOrderByTimestampNsAsc();
 
         for (int i = 0; i < events.size(); i++) {
 
@@ -97,24 +113,16 @@ public List<Event> getEventsByEndpoint(String endpoint) {
                 expectedPreviousHash = events.get(i - 1).getCurrentHash();
             }
 
-            // 🔥 CHECK 1: chain linkage
+            // 🔹 CHECK 1: chain linkage
             if (!current.getPreviousHash().equals(expectedPreviousHash)) {
                 return false;
             }
 
-            // 🔥 REBUILD DATA (WITH TIMESTAMP)
-            String data = current.getPreviousHash() +
-                    current.getTimestamp().toString() +
-                    current.getUserId() +
-                    current.getEndpoint() +
-                    current.getHttpMethod() +
-                    current.getSourceIp() +
-                    current.getDecision() +
-                    current.getRiskScore();
-
+            // 🔹 REBUILD HASH
+            String data = buildData(current);
             String recalculatedHash = HashUtil.generateHash(data);
 
-            // 🔥 CHECK 2: hash integrity
+            // 🔹 CHECK 2: hash integrity
             if (!recalculatedHash.equals(current.getCurrentHash())) {
                 return false;
             }
