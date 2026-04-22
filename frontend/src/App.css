@@ -1,0 +1,45 @@
+/* App Styles */
+
+/* ✨ Lenis Smooth Scrolling Setup */
+html {
+  height: auto;
+  overflow: auto;
+  scroll-behavior: auto; /* Let Lenis handle scroll behavior */
+}
+
+body {
+  height: auto;
+  overflow: auto;
+}
+
+#root {
+  height: auto;
+  width: 100%;
+}
+
+/* Remove default button styles */
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Input styles */
+input::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+/* Animation for loading states */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
