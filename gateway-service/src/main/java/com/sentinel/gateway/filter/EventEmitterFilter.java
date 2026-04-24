@@ -14,6 +14,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import java.util.concurrent.TimeUnit;
+
 import java.net.InetSocketAddress;
 import java.time.Instant;
 import java.util.HashMap;
@@ -33,6 +39,7 @@ import java.util.UUID;
 public class EventEmitterFilter implements GlobalFilter, Ordered {
 
     private final WebClient.Builder webClientBuilder;
+    private final MeterRegistry meterRegistry;
 
     @Value("${sentinel.event-store.url:http://localhost:8081}")
     private String eventStoreUrl;
@@ -54,6 +61,7 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        long startTime = System.currentTimeMillis();
         String path = exchange.getRequest().getURI().getPath();
 
         // Skip event emission for actuator endpoints
@@ -124,6 +132,12 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                             .requestContext(requestContextMap)
                             .build();
 
+                    long duration = System.currentTimeMillis() - startTime;
+                    Timer.builder("gateway.request.latency")
+                            .publishPercentiles(0.99)
+                            .register(meterRegistry)
+                            .record(duration, TimeUnit.MILLISECONDS);
+
                     return emitEvent(forwardedEvent);
                 }));
     }
@@ -138,9 +152,12 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                 .bodyValue((Object) event)
                 .retrieve()
                 .bodyToMono(Void.class)
-                .doOnSuccess(v -> log.debug("Emitted {} event: {}", event.getEventType(), event.getEventId()))
+                .doOnSuccess(v -> {
+                    log.debug("Emitted {} event: {}", event.getEventType(), event.getEventId());
+                    meterRegistry.counter("events.write.count").increment();
+                })
                 .doOnError(e -> log.error("Failed to emit {} event: {}", event.getEventType(), e.getMessage()))
-                .onErrorResume(e -> Mono.empty());
+                .onErrorResume(e -> Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Event store unavailable - strict circuit triggered")));
     }
 
     private long nowNanos() {
