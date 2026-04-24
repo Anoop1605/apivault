@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 public class EventStoreServiceApplication {
+
     public static void main(String[] args) {
         SpringApplication.run(EventStoreServiceApplication.class, args);
     }

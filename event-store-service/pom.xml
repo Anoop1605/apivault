@@ -35,11 +35,7 @@
         </dependency>
 
         <!-- H2 (For easy local run / reviewers) -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
+        
 
         <!-- Flyway (DB migrations) -->
         <dependency>
