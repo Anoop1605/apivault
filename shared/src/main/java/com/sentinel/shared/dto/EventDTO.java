@@ -71,7 +71,7 @@ public class EventDTO {
     private Decision decision;
 
     /** Headers (sanitised), query params, body_hash, content-type. */
-    private Map<String, Object> requestContext;
+    private Map<String, String> requestContext;
 
     /** SHA-256 hex digest of request body. */
     private String bodyHash;

@@ -8,11 +8,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * EventWriteController — accepts events from gateway and stores them.
- * PRD Section 5.5 (FR-ES-07): Event writes SHALL be synchronous.
- * A write failure SHALL result in HTTP 502 to the client.
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/events")
@@ -24,39 +19,59 @@ public class EventWriteController {
         this.eventWriter = eventWriter;
     }
 
-    /**
-     * POST /api/events — persist a single event to the event store.
-     * Called by gateway filter for every request milestone.
-     *
-     * @param eventDto The event to persist
-     * @return The persisted event
-     * @throws RuntimeException on database error → HTTP 502
-     */
     @PostMapping
-    public ResponseEntity<EventDTO> writeEvent(@RequestBody EventDTO eventDto) {
-        try {
-            log.debug("Received event: type={}, sessionId={}, timestamp_ns={}",
-                    eventDto.getEventType(), eventDto.getSessionId(), eventDto.getTimestampNs());
+    public ResponseEntity<?> writeEvent(@RequestBody EventDTO eventDto) {
 
+        // ✅ Validate required fields
+        if (eventDto.getSessionId() == null) {
+            log.warn("Rejected event: missing sessionId");
+            return ResponseEntity.badRequest().body("sessionId is required");
+        }
+
+        // ✅ Timestamp fallback — null-safe (timestampNs is boxed Long)
+        if (eventDto.getTimestampNs() == null || eventDto.getTimestampNs() == 0L) {
+            eventDto.setTimestampNs(System.currentTimeMillis() * 1_000_000);
+        }
+
+        try {
+            log.info("Incoming event: type={}, sessionId={}, userId={}",
+                    eventDto.getEventType(),
+                    eventDto.getSessionId(),
+                    eventDto.getUserId());
+
+            // ✅ Save event
             SecurityEvent saved = eventWriter.writeEvent(eventDto);
 
-            // Convert back to DTO for response
+            // ✅ Build response
             EventDTO responseDto = EventDTO.builder()
-                    .eventId(saved.getId())
-                    .timestampNs(saved.getTimestampNs())
-                    .eventType(saved.getEventType())
-                    .sessionId(saved.getSessionId())
-                    .decision(saved.getDecision())
-                    .endpoint(saved.getEndpoint())
-                    .sourceIp(saved.getSourceIp())
-                    .policyRuleId(saved.getRuleMatched())
-                    .build();
+        .eventId(saved.getId())
+        .timestampNs(saved.getTimestampNs())
+        .eventType(saved.getEventType())
+        .sessionId(saved.getSessionId())
+        .userId(saved.getUserId())
+        .roles(saved.getRoles())
+        .endpoint(saved.getEndpoint())
+        .httpMethod(saved.getHttpMethod())
+        .sourceIp(saved.getSourceIp())
+        .userAgent(saved.getUserAgent())
+        .policyRuleId(saved.getPolicyRuleId())
+        .policyRuleVersion(saved.getPolicyRuleVersion())
+        .policyRuleSnapshotId(saved.getPolicyRuleSnapshotId())
+        .riskScore(saved.getRiskScore())
+        .riskSignals(saved.getRiskSignals())
+        .decision(saved.getDecision())
+        .requestContext(saved.getRequestContext())
+        .bodyHash(saved.getBodyHash())
+        .eventHash(saved.getEventHash())
+        .gatewayVersion(saved.getGatewayVersion())
+        .build();
 
             return ResponseEntity.status(HttpStatus.CREATED).body(responseDto);
+
         } catch (Exception e) {
-            log.error("Event write failed: {}", e.getMessage(), e);
-            // Per PRD §5.5 FR-ES-07: write failure returns HTTP 502
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
+            log.error("Event write failed", e);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body("Event write failed");
         }
     }
 }

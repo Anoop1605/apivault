@@ -2,21 +2,13 @@ package com.sentinel.eventstore.writer;
 
 import com.sentinel.eventstore.model.SecurityEvent;
 import com.sentinel.eventstore.repository.EventRepository;
+import com.sentinel.eventstore.util.HashUtil;
 import com.sentinel.shared.dto.EventDTO;
-import com.sentinel.shared.enums.Decision;
-import com.sentinel.shared.enums.EventType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
-
-/**
- * EventWriter — writes security events to the append-only event store.
- * Converts EventDTO (from gateway) to SecurityEvent entity and persists to DB.
- * PRD Section 5.5: Event Store — append-only with no UPDATE/DELETE allowed.
- */
-@Slf4j
 @Service
+@Slf4j
 public class EventWriter {
 
     private final EventRepository eventRepository;
@@ -25,55 +17,69 @@ public class EventWriter {
         this.eventRepository = eventRepository;
     }
 
-    /**
-     * Persist a single event to the event store.
-     * Converts EventDTO to SecurityEvent JPA entity and saves.
-     *
-     * @param eventDto The event DTO from the gateway
-     * @return The persisted SecurityEvent
-     * @throws RuntimeException if write fails
-     */
-    public SecurityEvent writeEvent(EventDTO eventDto) {
+    public SecurityEvent writeEvent(EventDTO dto) {
         try {
-            SecurityEvent event = mapDtoToEntity(eventDto);
+
+            // 🔥 STEP 1: Get last event (for chain)
+            SecurityEvent lastEvent = eventRepository.findTopByOrderByTimestampNsDesc();
+
+            String previousHash = (lastEvent != null)
+                    ? lastEvent.getEventHash()
+                    : "GENESIS";
+
+            // 🔥 STEP 2: Build string for hashing
+            String dataToHash =
+                    String.valueOf(dto.getSessionId()) +
+                    dto.getTimestampNs() +
+                    dto.getEventType() +
+                    dto.getUserId() +
+                    dto.getEndpoint() +
+                    dto.getSourceIp();
+
+            // 🔥 STEP 3: Generate hashes
+            String bodyHash = (dto.getBodyHash() != null)
+                    ? dto.getBodyHash()
+                    : HashUtil.sha256(dataToHash);
+
+            String eventHash = HashUtil.sha256(dataToHash + previousHash);
+
+            // 🔥 STEP 4: Build entity
+            SecurityEvent event = SecurityEvent.builder()
+                    .sessionId(dto.getSessionId())
+                    .timestampNs(dto.getTimestampNs())
+                    .eventType(dto.getEventType())
+                    .userId(dto.getUserId())
+                    .roles(dto.getRoles())
+                    .endpoint(dto.getEndpoint())
+                    .httpMethod(dto.getHttpMethod())
+                    .sourceIp(dto.getSourceIp())
+                    .userAgent(dto.getUserAgent())
+                    .decision(dto.getDecision())
+                    .policyRuleId(dto.getPolicyRuleId())
+                    .policyRuleVersion(dto.getPolicyRuleVersion())
+                    .policyRuleSnapshotId(dto.getPolicyRuleSnapshotId())
+                    .riskScore(dto.getRiskScore())
+                    .riskSignals(dto.getRiskSignals())
+                    .requestContext(dto.getRequestContext())
+                    .bodyHash(bodyHash)
+                    .previousHash(previousHash)   // 🔥 NEW
+                    .eventHash(eventHash)         // 🔥 GENERATED
+                    .gatewayVersion(dto.getGatewayVersion())
+                    .ruleMatched(dto.getPolicyRuleId())
+                    .build();
+
             SecurityEvent saved = eventRepository.save(event);
-            log.info("Event persisted: eventId={}, type={}, sessionId={}",
-                    saved.getId(), saved.getEventType(), saved.getSessionId());
+
+            log.info("Event saved: id={}, hash={}, prevHash={}",
+                    saved.getId(),
+                    saved.getEventHash(),
+                    saved.getPreviousHash());
+
             return saved;
+
         } catch (Exception e) {
-            log.error("Failed to write event: {}", e.getMessage(), e);
-            throw new RuntimeException("Event write failed: " + e.getMessage(), e);
+            log.error("Write failed", e);
+            throw new RuntimeException(e);
         }
-    }
-
-    /**
-     * Map EventDTO (from gateway) to SecurityEvent (JPA entity).
-     * Maps all 20 fields from EventDTO to preserve complete event information.
-     */
-    private SecurityEvent mapDtoToEntity(EventDTO dto) {
-        SecurityEvent event = SecurityEvent.builder()
-                .sessionId(dto.getSessionId())
-                .timestampNs(dto.getTimestampNs())
-                .eventType(dto.getEventType())
-                .userId(dto.getUserId())
-                .roles(dto.getRoles())
-                .endpoint(dto.getEndpoint())
-                .httpMethod(dto.getHttpMethod())
-                .sourceIp(dto.getSourceIp())
-                .userAgent(dto.getUserAgent())
-                .decision(dto.getDecision())
-                .policyRuleId(dto.getPolicyRuleId())
-                .policyRuleVersion(dto.getPolicyRuleVersion())
-                .policyRuleSnapshotId(dto.getPolicyRuleSnapshotId())
-                .riskScore(dto.getRiskScore())
-                .riskSignals(dto.getRiskSignals())
-                .requestContext(dto.getRequestContext())
-                .bodyHash(dto.getBodyHash())
-                .eventHash(dto.getEventHash())
-                .gatewayVersion(dto.getGatewayVersion())
-                .ruleMatched(dto.getPolicyRuleId())
-                .build();
-
-        return event;
     }
 }

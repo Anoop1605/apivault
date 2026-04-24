@@ -3,62 +3,70 @@ package com.sentinel.eventstore.model;
 import com.sentinel.shared.enums.Decision;
 import com.sentinel.shared.enums.EventType;
 import jakarta.persistence.*;
+import lombok.*;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
 @Table(name = "security_events")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SecurityEvent {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "session_id", nullable = false)
     private UUID sessionId;
-
-    @Column(name = "timestamp_ns", nullable = false)
     private long timestampNs;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false)
     private EventType eventType;
 
+    private String userId;
+    private String previousHash;
+    private String eventHash;
+
+    // ✅ ROLES
+    @ElementCollection
+    @CollectionTable(name = "event_roles", joinColumns = @JoinColumn(name = "event_id"))
+    @Column(name = "role")
+    private List<String> roles;
+
+    private String endpoint;
+    private String httpMethod;
+    private String sourceIp;
+    private String userAgent;
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "decision")
     private Decision decision;
 
-    @Column(name = "rule_matched")
+    private String policyRuleId;
+    private Integer policyRuleVersion;
+    private UUID policyRuleSnapshotId;
+
+    private Double riskScore;
+
+    // ✅ FIXED (NO reserved keywords)
+    @ElementCollection
+    @CollectionTable(name = "event_risk_signals", joinColumns = @JoinColumn(name = "event_id"))
+    @MapKeyColumn(name = "signal_key")
+    @Column(name = "signal_value")
+    private Map<String, Double> riskSignals;
+
+    // ✅ FIXED (NO reserved keywords)
+    @ElementCollection
+    @CollectionTable(name = "event_request_context", joinColumns = @JoinColumn(name = "event_id"))
+    @MapKeyColumn(name = "ctx_key")
+    @Column(name = "ctx_value")
+    private Map<String, String> requestContext;
+
+    private String bodyHash;
+    private String gatewayVersion;
+
     private String ruleMatched;
-
-    @Column(name = "source_ip")
-    private String sourceIp;
-
-    @Column(name = "endpoint")
-    private String endpoint;
-
-    public SecurityEvent() {}
-
-    public UUID getId() { return id; }
-
-    public UUID getSessionId() { return sessionId; }
-    public void setSessionId(UUID sessionId) { this.sessionId = sessionId; }
-
-    public long getTimestampNs() { return timestampNs; }
-    public void setTimestampNs(long timestampNs) { this.timestampNs = timestampNs; }
-
-    public EventType getEventType() { return eventType; }
-    public void setEventType(EventType eventType) { this.eventType = eventType; }
-
-    public Decision getDecision() { return decision; }
-    public void setDecision(Decision decision) { this.decision = decision; }
-
-    public String getRuleMatched() { return ruleMatched; }
-    public void setRuleMatched(String ruleMatched) { this.ruleMatched = ruleMatched; }
-
-    public String getSourceIp() { return sourceIp; }
-    public void setSourceIp(String sourceIp) { this.sourceIp = sourceIp; }
-
-    public String getEndpoint() { return endpoint; }
-    public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
 }
