@@ -1,49 +1,62 @@
 package com.sentinel.eventstore.writer;
 
+import com.sentinel.eventstore.policy.PolicyRuleHistory;
 import com.sentinel.eventstore.model.SecurityEvent;
 import com.sentinel.eventstore.repository.EventRepository;
+import com.sentinel.eventstore.repository.PolicyRuleHistoryRepository;
 import com.sentinel.eventstore.util.HashUtil;
 import com.sentinel.shared.dto.EventDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.time.Instant;
 
 @Service
 @Slf4j
 public class EventWriter {
 
     private final EventRepository eventRepository;
+    private final PolicyRuleHistoryRepository historyRepository;
 
-    public EventWriter(EventRepository eventRepository) {
+    public EventWriter(EventRepository eventRepository,
+                       PolicyRuleHistoryRepository historyRepository) {
         this.eventRepository = eventRepository;
+        this.historyRepository = historyRepository;
     }
 
     public SecurityEvent writeEvent(EventDTO dto) {
         try {
 
-            // 🔥 STEP 1: Get last event (for chain)
+            // 🔗 GET LAST EVENT FOR HASH CHAIN
             SecurityEvent lastEvent = eventRepository.findTopByOrderByTimestampNsDesc();
 
             String previousHash = (lastEvent != null)
                     ? lastEvent.getEventHash()
                     : "GENESIS";
 
-            // 🔥 STEP 2: Build string for hashing
-            String dataToHash =
-                    String.valueOf(dto.getSessionId()) +
-                    dto.getTimestampNs() +
-                    dto.getEventType() +
-                    dto.getUserId() +
-                    dto.getEndpoint() +
-                    dto.getSourceIp();
-
-            // 🔥 STEP 3: Generate hashes
+            // 🔐 BODY HASH
             String bodyHash = (dto.getBodyHash() != null)
                     ? dto.getBodyHash()
-                    : HashUtil.sha256(dataToHash);
+                    : HashUtil.sha256(String.valueOf(dto.getSessionId()));
 
-            String eventHash = HashUtil.sha256(dataToHash + previousHash);
+            // 🧾 CREATE POLICY SNAPSHOT (SOURCE OF TRUTH)
+            PolicyRuleHistory snapshot = PolicyRuleHistory.builder()
+                    .ruleId(dto.getPolicyRuleId())
+                    .version(dto.getPolicyRuleVersion())
+                    .fullConditions(
+                            dto.getPolicyRuleSnapshot() != null
+                                    ? dto.getPolicyRuleSnapshot()
+                                    : "{}"
+                    )
+                    .decision(dto.getDecision())
+                    .activatedAt(Instant.now())
+                    .activatedBy("system")
+                    .build();
 
-            // 🔥 STEP 4: Build entity
+            // 💾 SAVE SNAPSHOT
+            PolicyRuleHistory savedSnapshot = historyRepository.save(snapshot);
+
+            // 📦 CREATE EVENT
             SecurityEvent event = SecurityEvent.builder()
                     .sessionId(dto.getSessionId())
                     .timestampNs(dto.getTimestampNs())
@@ -57,28 +70,29 @@ public class EventWriter {
                     .decision(dto.getDecision())
                     .policyRuleId(dto.getPolicyRuleId())
                     .policyRuleVersion(dto.getPolicyRuleVersion())
-                    .policyRuleSnapshotId(dto.getPolicyRuleSnapshotId())
+
+                    // ✅ IMPORTANT FIX (NO NULL NOW)
+                    .policyRuleSnapshot(savedSnapshot.getFullConditions())
+                    .policyRuleSnapshotId(savedSnapshot.getSnapshotId())
+
                     .riskScore(dto.getRiskScore())
                     .riskSignals(dto.getRiskSignals())
                     .requestContext(dto.getRequestContext())
                     .bodyHash(bodyHash)
-                    .previousHash(previousHash)   // 🔥 NEW
-                    .eventHash(eventHash)         // 🔥 GENERATED
+                    .previousHash(previousHash)
                     .gatewayVersion(dto.getGatewayVersion())
                     .ruleMatched(dto.getPolicyRuleId())
                     .build();
 
-            SecurityEvent saved = eventRepository.save(event);
+            // 🔐 GENERATE EVENT HASH (CHAINING)
+            String eventHash = HashUtil.generateHash(event);
+            event.setEventHash(eventHash);
 
-            log.info("Event saved: id={}, hash={}, prevHash={}",
-                    saved.getId(),
-                    saved.getEventHash(),
-                    saved.getPreviousHash());
-
-            return saved;
+            // 💾 SAVE EVENT
+            return eventRepository.save(event);
 
         } catch (Exception e) {
-            log.error("Write failed", e);
+            log.error("Error writing event", e);
             throw new RuntimeException(e);
         }
     }
