@@ -222,6 +222,7 @@ public class EventQueryService {
                 .policyRuleId(event.getPolicyRuleId())
                 .policyRuleVersion(event.getPolicyRuleVersion())
                 .policyRuleSnapshotId(event.getPolicyRuleSnapshotId())
+                .policyRuleSnapshot(event.getPolicyRuleSnapshot())
                 .riskScore(event.getRiskScore())
                 .riskSignals(event.getRiskSignals())
                 .decision(event.getDecision())
@@ -230,5 +231,7 @@ public class EventQueryService {
                 .eventHash(event.getEventHash())
                 .gatewayVersion(event.getGatewayVersion())
                 .build();
+               
+    
     }
 }

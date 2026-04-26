@@ -31,7 +31,6 @@ public class SecurityEvent {
     private String previousHash;
     private String eventHash;
 
-    // ✅ ROLES
     @ElementCollection
     @CollectionTable(name = "event_roles", joinColumns = @JoinColumn(name = "event_id"))
     @Column(name = "role")
@@ -47,18 +46,21 @@ public class SecurityEvent {
 
     private String policyRuleId;
     private Integer policyRuleVersion;
+
+    // ✅ NEW (IMPORTANT)
+    @Column(columnDefinition = "TEXT")
+    private String policyRuleSnapshot;
+
     private UUID policyRuleSnapshotId;
 
     private Double riskScore;
 
-    // ✅ FIXED (NO reserved keywords)
     @ElementCollection
     @CollectionTable(name = "event_risk_signals", joinColumns = @JoinColumn(name = "event_id"))
     @MapKeyColumn(name = "signal_key")
     @Column(name = "signal_value")
     private Map<String, Double> riskSignals;
 
-    // ✅ FIXED (NO reserved keywords)
     @ElementCollection
     @CollectionTable(name = "event_request_context", joinColumns = @JoinColumn(name = "event_id"))
     @MapKeyColumn(name = "ctx_key")
