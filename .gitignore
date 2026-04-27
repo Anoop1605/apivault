@@ -1,7 +1,7 @@
 target/
 *.class
 *.jar
-*.pem
+*.pem   
 .env
 *.log
 .idea/
@@ -13,3 +13,4 @@ docker-compose.override.yml
 
 #Manual
 *.docx*.pem
+*.txt
