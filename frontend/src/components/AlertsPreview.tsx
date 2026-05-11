@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AlertTriangle, ArrowRight, AlertCircle } from 'lucide-react'
 import { forensicService } from '../services/api'
+import { useNavigate } from 'react-router-dom'
 
 interface Alert {
   id: string
@@ -34,6 +35,7 @@ const severityConfig = {
 const AlertsPreview = ({ sessionId, onViewAll }: AlertsPreviewProps) => {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const loadAlerts = async () => {
@@ -118,6 +120,7 @@ const AlertsPreview = ({ sessionId, onViewAll }: AlertsPreviewProps) => {
                 key={alert.id}
                 variants={itemVariants}
                 whileHover={{ x: 5, backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                onClick={() => navigate(`/sessions/${alert.sessionId}`)}
                 className={`${config.bg} ${config.border} border rounded-lg p-4 cursor-pointer transition-all group`}
               >
                 <div className="flex items-start gap-3">

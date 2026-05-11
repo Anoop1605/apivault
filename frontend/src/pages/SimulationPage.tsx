@@ -27,47 +27,6 @@ interface SimulatedEvent extends SessionEvent {
   divergenceReason?: string
 }
 
-const originalEvents: SessionEvent[] = [
-  {
-    id: 'e1',
-    step: 1,
-    eventType: 'REQUEST_RECEIVED',
-    endpoint: '/api/login',
-    method: 'POST',
-    originalDecision: 'ALLOW',
-    originalRisk: 0.15,
-    ip: '192.168.1.100'
-  },
-  {
-    id: 'e2',
-    step: 2,
-    eventType: 'POLICY_EVALUATED',
-    endpoint: '/api/users/profile',
-    method: 'GET',
-    originalDecision: 'ALLOW',
-    originalRisk: 0.25,
-  },
-  {
-    id: 'e3',
-    step: 3,
-    eventType: 'REQUEST_RECEIVED',
-    endpoint: '/api/users/search',
-    method: 'GET',
-    query: "name=' OR '1'='1",
-    originalDecision: 'ALLOW', // Originally allowed!
-    originalRisk: 0.45,
-  },
-  {
-    id: 'e4',
-    step: 4,
-    eventType: 'RISK_FLAGGED',
-    endpoint: '/api/admin/data',
-    method: 'POST',
-    originalDecision: 'FLAG',
-    originalRisk: 0.82,
-  },
-]
-
 export const SimulationPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
@@ -78,6 +37,7 @@ export const SimulationPage: React.FC = () => {
   const [inputSanitization, setInputSanitization] = useState(false)
   const [riskThreshold, setRiskThreshold] = useState(50)
   const [customRule, setCustomRule] = useState('')
+  const [originalEvents, setOriginalEvents] = useState<SessionEvent[]>([])
 
   // --- Simulation State ---
   const [isSimulating, setIsSimulating] = useState(false)
@@ -86,11 +46,38 @@ export const SimulationPage: React.FC = () => {
   const [displayedEvents, setDisplayedEvents] = useState<SimulatedEvent[]>([])
   
   // Results State
-  const [originalFinalRisk, setOriginalFinalRisk] = useState(82)
+  const [originalFinalRisk, setOriginalFinalRisk] = useState(0)
   const [simulatedFinalRisk, setSimulatedFinalRisk] = useState(0)
 
   // Refs for GSAP
   const timelineRef = useRef<HTMLDivElement>(null)
+
+  // --- Fetch Actual Session Events ---
+  useEffect(() => {
+    if (!sessionId) return
+    
+    // Fetch the real timeline for this session from the Event Store
+    fetch(`http://localhost:8081/events/sessions/${sessionId}/timeline`)
+      .then(res => res.json())
+      .then(data => {
+        if (!Array.isArray(data)) return
+        const mappedEvents: SessionEvent[] = data.map((evt, idx) => ({
+          id: evt.eventId || evt.id || `evt_${idx}`,
+          step: idx + 1,
+          eventType: evt.eventType || 'API_REQUEST',
+          endpoint: evt.endpoint || '',
+          method: evt.httpMethod || evt.method || 'GET',
+          originalDecision: evt.decision || evt.originalDecision || 'ALLOW',
+          originalRisk: evt.riskScore || evt.originalRisk || 0,
+          query: evt.query || '',
+          ip: evt.ip || ''
+        }))
+        setOriginalEvents(mappedEvents)
+        const maxRisk = mappedEvents.length > 0 ? Math.max(...mappedEvents.map(e => e.originalRisk)) : 0
+        setOriginalFinalRisk(Math.round(maxRisk * 100))
+      })
+      .catch(err => console.error("Error fetching simulation events:", err))
+  }, [sessionId])
 
   // --- Simulation Logic ---
   const runSimulation = () => {

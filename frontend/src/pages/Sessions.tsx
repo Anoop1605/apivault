@@ -14,91 +14,6 @@ import {
   Trash2,
 } from 'lucide-react'
 
-// Mock data for sessions
-const mockSessions = [
-  {
-    sessionId: 'sess_abc123def456',
-    userId: 'user_john_smith',
-    status: 'active',
-    riskLevel: 92,
-    eventCount: 15,
-    duration: 3600000,
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    sessionId: 'sess_xyz789uvw012',
-    userId: 'user_jane_doe',
-    status: 'suspicious',
-    riskLevel: 65,
-    eventCount: 8,
-    duration: 1800000,
-    timestamp: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    sessionId: 'sess_def456ghi789',
-    userId: 'user_bob_wilson',
-    status: 'active',
-    riskLevel: 23,
-    eventCount: 3,
-    duration: 900000,
-    timestamp: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    sessionId: 'sess_jkl012mno345',
-    userId: 'user_alice_johnson',
-    status: 'compromised',
-    riskLevel: 88,
-    eventCount: 22,
-    duration: 5400000,
-    timestamp: new Date(Date.now() - 10800000).toISOString(),
-  },
-  {
-    sessionId: 'sess_pqr678stu901',
-    userId: 'user_charlie_brown',
-    status: 'active',
-    riskLevel: 41,
-    eventCount: 6,
-    duration: 2700000,
-    timestamp: new Date(Date.now() - 5400000).toISOString(),
-  },
-  {
-    sessionId: 'sess_vwx234yza567',
-    userId: 'user_diana_prince',
-    status: 'suspicious',
-    riskLevel: 72,
-    eventCount: 12,
-    duration: 4500000,
-    timestamp: new Date(Date.now() - 14400000).toISOString(),
-  },
-  {
-    sessionId: 'sess_bcd890efg123',
-    userId: 'user_eve_martin',
-    status: 'active',
-    riskLevel: 15,
-    eventCount: 2,
-    duration: 600000,
-    timestamp: new Date(Date.now() - 2700000).toISOString(),
-  },
-  {
-    sessionId: 'sess_hij456klm789',
-    userId: 'user_frank_castle',
-    status: 'compromised',
-    riskLevel: 95,
-    eventCount: 28,
-    duration: 7200000,
-    timestamp: new Date(Date.now() - 18000000).toISOString(),
-  },
-  {
-    sessionId: 'sess_nop012qrs345',
-    userId: 'user_grace_hopper',
-    status: 'active',
-    riskLevel: 38,
-    eventCount: 5,
-    duration: 1200000,
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-  },
-]
-
 const Sessions = () => {
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<any[]>([])
@@ -109,12 +24,18 @@ const Sessions = () => {
   const [selectedSession, setSelectedSession] = useState<any | null>(null)
 
   useEffect(() => {
-    // Simulate API call with mock data
-    setTimeout(() => {
-      setSessions(mockSessions)
-      setFilteredSessions(mockSessions)
-      setLoading(false)
-    }, 800)
+    // Fetch real data from the Forensics Service
+    fetch('http://localhost:8083/forensics/query/sessions')
+      .then(response => response.json())
+      .then(data => {
+        setSessions(data)
+        setFilteredSessions(data)
+        setLoading(false)
+      })
+      .catch(error => {
+        console.error("Error fetching live sessions:", error)
+        setLoading(false)
+      })
   }, [])
 
   // Filter sessions based on search and status

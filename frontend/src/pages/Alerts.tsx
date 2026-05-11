@@ -19,63 +19,16 @@ interface AlertData {
   riskTimeline?: number[]
 }
 
-const MOCK_ALERTS: AlertData[] = [
-  {
-    id: 'alert_101',
-    type: 'SQL Injection Detected',
-    severity: 'CRITICAL',
-    sessionId: 'sess_042',
-    risk: 82,
-    timestamp: new Date(Date.now() - 2 * 60000).toISOString(),
-    status: 'ACTIVE',
-    description: "Suspicious SQL keyword sequence detected in the login form. Payload implies an authentication bypass attempt ('OR 1=1').",
-    rulesTriggered: ["SQL_KEYWORD_DETECT", "AUTH_BYPASS_SIG"],
-    riskTimeline: [10, 25, 50, 82]
-  },
-  {
-    id: 'alert_102',
-    type: 'XSS Attempt',
-    severity: 'HIGH',
-    sessionId: 'sess_031',
-    risk: 67,
-    timestamp: new Date(Date.now() - 10 * 60000).toISOString(),
-    status: 'ACTIVE',
-    description: "Reflected cross-site scripting attempt identified in the search parameter. Script tags were blocked.",
-    rulesTriggered: ["XSS_TAG_DETECT"],
-    riskTimeline: [5, 10, 67]
-  },
-  {
-    id: 'alert_103',
-    type: 'Auth Failure Spike',
-    severity: 'HIGH',
-    sessionId: 'sess_055',
-    risk: 75,
-    timestamp: new Date(Date.now() - 25 * 60000).toISOString(),
-    status: 'ACTIVE',
-    description: "Rapid succession of authentication failures from a single IP address, indicating a possible brute-force attack.",
-    rulesTriggered: ["BRUTE_FORCE_PREVENTION"],
-    riskTimeline: [2, 10, 25, 45, 75]
-  },
-  {
-    id: 'alert_104',
-    type: 'Excessive Data Access',
-    severity: 'MEDIUM',
-    sessionId: 'sess_012',
-    risk: 45,
-    timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
-    status: 'RESOLVED',
-    description: "User accessed an unusually high number of sensitive records in a short timeframe.",
-    rulesTriggered: ["DATA_EXFIL_MONITOR"],
-    riskTimeline: [5, 15, 30, 45]
-  }
-]
-
 const fetchAlerts = async (): Promise<AlertData[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(MOCK_ALERTS)
-    }, 400)
-  })
+  try {
+    // Adjust URL if your Alerts are served from a different port/path
+    const response = await fetch('http://localhost:8083/forensics/query/alerts')
+    if (!response.ok) return []
+    return await response.json()
+  } catch (error) {
+    console.error("Error fetching live alerts:", error)
+    return []
+  }
 }
 
 // --- Component ---

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Activity, LogIn, LogOut, Lock, AlertTriangle } from 'lucide-react'
 import { forensicService } from '../services/api'
+import { useNavigate } from 'react-router-dom'
 
 interface ActivityEvent {
   id: string
@@ -41,6 +42,7 @@ const decisionConfig = {
 const ActivityFeed = ({ sessionId }: ActivityFeedProps) => {
   const [events, setEvents] = useState<ActivityEvent[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const loadActivity = async () => {
@@ -111,6 +113,7 @@ const ActivityFeed = ({ sessionId }: ActivityFeedProps) => {
                 key={event.id}
                 variants={itemVariants}
                 className="flex gap-4 group cursor-pointer"
+                onClick={() => navigate(`/sessions/${event.sessionId}`)}
               >
                 {/* Timeline Line */}
                 <div className="flex flex-col items-center">
