@@ -1,0 +1,15 @@
+target/
+*.class
+*.jar
+*.pem   
+.env
+*.log
+.idea/
+*.iml
+.DS_Store
+docker-compose.override.yml
+
+
+#Manual
+*.docx*.pem
+*.txt

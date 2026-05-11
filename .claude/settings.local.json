@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /c/Users/shreesha/apivault/event-store-service/src/main/java/com/sentinel/eventstore/session/*.java)",
+      "Bash(git ls-tree:*)",
+      "Bash(xargs wc:*)",
+      "Bash(mvn install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
