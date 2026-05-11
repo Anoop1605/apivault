@@ -3,7 +3,6 @@ package com.sentinel.forensics.service;
 import com.sentinel.forensics.engine.ReplayHashUtil;
 import com.sentinel.forensics.event.EventStoreClient;
 import com.sentinel.forensics.hash.HashVerificationUtil;
-import com.sentinel.forensics.hash.HashVerificationUtil.VerificationResult;
 import com.sentinel.shared.dto.EventDTO;
 import com.sentinel.shared.dto.PolicySnapshot;
 import com.sentinel.shared.dto.ReplayReport;
@@ -12,7 +11,9 @@ import com.sentinel.shared.dto.SessionSummaryDTO;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
 
+@Service
 public class ForensicQueryService {
 
     private final ReplayService replayService;
@@ -51,15 +52,16 @@ public class ForensicQueryService {
      * will be detected in the mock setup. This method is ready for when the
      * real event store returns stored hashes.
      */
-    public List<VerificationResult> verifyEventHashes(UUID sessionId) {
+    public List<String> verifyEventHashes(UUID sessionId) {
         List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
         // Re-compute each event hash and use it as the "stored" value for now.
-        // When real persistence is in place, storedHashes come from the DB column event_hash.
+        // When real persistence is in place, storedHashes come from the DB column
+        // event_hash.
         List<String> storedHashes = events.stream()
                 .map(ReplayHashUtil::computeEventHash)
                 .collect(java.util.stream.Collectors.toList());
-        List<VerificationResult> all = HashVerificationUtil.verifyAll(events, storedHashes);
-        return HashVerificationUtil.findTampered(all);
+        com.sentinel.shared.dto.VerificationResult result = HashVerificationUtil.verifyAll(events, storedHashes);
+        return HashVerificationUtil.findTampered(result);
     }
 
     /**
@@ -74,16 +76,16 @@ public class ForensicQueryService {
         List<UUID> knownSessions = List.of(
                 UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001"),
                 UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002"),
-                UUID.fromString("cccccccc-0000-0000-0000-000000000003")
-        );
+                UUID.fromString("cccccccc-0000-0000-0000-000000000003"));
 
         List<SessionSummaryDTO> summaries = new java.util.ArrayList<>();
         for (UUID sessionId : knownSessions) {
             List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-            if (events == null || events.isEmpty()) continue;
+            if (events == null || events.isEmpty())
+                continue;
 
             long start = events.stream().mapToLong(EventDTO::getTimestampNs).min().orElse(0);
-            long end   = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
+            long end = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
             PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
             String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 

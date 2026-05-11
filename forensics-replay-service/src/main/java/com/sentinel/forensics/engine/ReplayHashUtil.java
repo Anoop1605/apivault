@@ -11,16 +11,17 @@ import java.security.NoSuchAlgorithmException;
  *
  * Implements the exact spec from PRD §10.3:
  * Fields (in this exact order):
- *   event_id, timestamp_ns, event_type, session_id, user_id,
- *   endpoint, http_method, decision, policy_rule_id,
- *   policy_rule_version, risk_score, body_hash, gateway_version
+ * event_id, timestamp_ns, event_type, session_id, user_id,
+ * endpoint, http_method, decision, policy_rule_id,
+ * policy_rule_version, risk_score, body_hash, gateway_version
  *
  * Format: field_name=field_value| (pipe-separated, NULL -> literal "null")
  * Encoding: UTF-8 bytes -> SHA-256 -> lowercase hex (64 chars)
  */
 public class ReplayHashUtil {
 
-    private ReplayHashUtil() {}
+    private ReplayHashUtil() {
+    }
 
     /**
      * Computes the canonical SHA-256 hash for a single event per PRD §10.3.
@@ -35,7 +36,7 @@ public class ReplayHashUtil {
      * Used for replay report tamper detection.
      */
     public static String computeSessionHash(java.util.List<EventDTO> events,
-                                            com.sentinel.shared.dto.PolicySnapshot snapshot) {
+            com.sentinel.shared.dto.PolicySnapshot snapshot) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             for (EventDTO event : events) {
@@ -95,8 +96,9 @@ public class ReplayHashUtil {
         return value == null ? "null" : value.toString();
     }
 
-    private static String riskScoreStr(Float riskScore) {
-        if (riskScore == null) return "null";
+    private static String riskScoreStr(Double riskScore) {
+        if (riskScore == null)
+            return "null";
         return String.format("%.6f", riskScore);
     }
 

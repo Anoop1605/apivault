@@ -1,8 +1,10 @@
 package com.sentinel.forensics.replay;
 
+import com.sentinel.forensics.client.PolicyEngineClient;
 import com.sentinel.shared.dto.EventDTO;
 import com.sentinel.shared.dto.PolicySnapshot;
 import com.sentinel.shared.dto.ReplayReport;
+import com.sentinel.shared.enums.EventType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,17 +21,20 @@ class WhatIfSimulationEngineTest {
         EventDTO early = event(10L);
         List<EventDTO> immutableEvents = List.of(late, early);
 
-        WhatIfSimulationEngine engine = new WhatIfSimulationEngine();
+        PolicyEngineClient client = (event, snapshot) -> new EvaluationResult("ALLOW", event.getPolicyRuleId(),
+                event.getRiskScore());
+        ReplayEngine replayEngine = new ReplayEngine(client);
+        WhatIfSimulationEngine engine = new WhatIfSimulationEngine(replayEngine);
+
         ReplayReport report = assertDoesNotThrow(() -> engine.simulate(
                 UUID.randomUUID(),
                 immutableEvents,
                 new PolicySnapshot(List.of("ALLOW_ALL")),
-                new PolicySnapshot(List.of("ALLOW_ALL"))
-        ));
+                new PolicySnapshot(List.of("ALLOW_ALL"))));
 
         assertEquals(2, report.getSteps().size());
-        assertEquals(10L, report.getSteps().get(0).getEvent().getTimestampNs());
-        assertEquals(20L, report.getSteps().get(1).getEvent().getTimestampNs());
+        assertEquals(10L, report.getSteps().get(0).getTimestampNs());
+        assertEquals(20L, report.getSteps().get(1).getTimestampNs());
         assertEquals(20L, immutableEvents.get(0).getTimestampNs());
         assertEquals(10L, immutableEvents.get(1).getTimestampNs());
     }
@@ -40,8 +45,9 @@ class WhatIfSimulationEngineTest {
         event.setSessionId(UUID.randomUUID());
         event.setTimestampNs(timestampNs);
         event.setHttpMethod("GET");
-        event.setEventType("ACCESS");
+        event.setEventType(EventType.ACCESS);
         event.setPolicyRuleId("ALLOW_ALL");
+        event.setRiskScore(0.2d);
         return event;
     }
 }

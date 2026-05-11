@@ -3,12 +3,8 @@ package com.sentinel.eventstore.writer;
 import com.sentinel.eventstore.model.SecurityEvent;
 import com.sentinel.eventstore.repository.EventRepository;
 import com.sentinel.shared.dto.EventDTO;
-import com.sentinel.shared.enums.Decision;
-import com.sentinel.shared.enums.EventType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 /**
  * EventWriter — writes security events to the append-only event store.
@@ -48,32 +44,17 @@ public class EventWriter {
 
     /**
      * Map EventDTO (from gateway) to SecurityEvent (JPA entity).
-     * Maps all 20 fields from EventDTO to preserve complete event information.
+     * Maps the core fields represented by SecurityEvent.
      */
     private SecurityEvent mapDtoToEntity(EventDTO dto) {
-        SecurityEvent event = SecurityEvent.builder()
-                .sessionId(dto.getSessionId())
-                .timestampNs(dto.getTimestampNs())
-                .eventType(dto.getEventType())
-                .userId(dto.getUserId())
-                .roles(dto.getRoles())
-                .endpoint(dto.getEndpoint())
-                .httpMethod(dto.getHttpMethod())
-                .sourceIp(dto.getSourceIp())
-                .userAgent(dto.getUserAgent())
-                .decision(dto.getDecision())
-                .policyRuleId(dto.getPolicyRuleId())
-                .policyRuleVersion(dto.getPolicyRuleVersion())
-                .policyRuleSnapshotId(dto.getPolicyRuleSnapshotId())
-                .riskScore(dto.getRiskScore())
-                .riskSignals(dto.getRiskSignals())
-                .requestContext(dto.getRequestContext())
-                .bodyHash(dto.getBodyHash())
-                .eventHash(dto.getEventHash())
-                .gatewayVersion(dto.getGatewayVersion())
-                .ruleMatched(dto.getPolicyRuleId())
-                .build();
-
+        SecurityEvent event = new SecurityEvent();
+        event.setSessionId(dto.getSessionId());
+        event.setTimestampNs(dto.getTimestampNs() != null ? dto.getTimestampNs() : System.nanoTime());
+        event.setEventType(dto.getEventType());
+        event.setEndpoint(dto.getEndpoint());
+        event.setSourceIp(dto.getSourceIp());
+        event.setDecision(dto.getDecision());
+        event.setRuleMatched(dto.getPolicyRuleId());
         return event;
     }
 }

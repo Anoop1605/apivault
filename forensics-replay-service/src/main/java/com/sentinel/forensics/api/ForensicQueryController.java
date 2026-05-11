@@ -1,6 +1,5 @@
 package com.sentinel.forensics.api;
 
-import com.sentinel.forensics.hash.HashVerificationUtil.VerificationResult;
 import com.sentinel.forensics.service.ForensicQueryService;
 import com.sentinel.shared.dto.ReplayReport;
 import com.sentinel.shared.dto.SessionSummaryDTO;
@@ -24,25 +23,23 @@ public class ForensicQueryController {
         this.forensicQueryService = forensicQueryService;
     }
 
-    @Operation(summary = "List all sessions",
-               description = "Returns summary metadata for all known replay sessions.")
+    @Operation(summary = "List all sessions", description = "Returns summary metadata for all known replay sessions.")
     @GetMapping("/sessions")
     public ResponseEntity<List<SessionSummaryDTO>> listReplaySessions() {
         return ResponseEntity.ok(forensicQueryService.listReplaySessions());
     }
 
-    @Operation(summary = "Get replay report",
-               description = "Returns the full replay report for a session including " +
-                             "per-step decisions and tamper-evident hash.")
+    @Operation(summary = "Get replay report", description = "Returns the full replay report for a session including " +
+            "per-step decisions and tamper-evident hash.")
     @GetMapping("/sessions/{sessionId}/report")
     public ResponseEntity<ReplayReport> getReplayReportBySessionId(
             @Parameter(description = "Session UUID") @PathVariable UUID sessionId) {
         return ResponseEntity.ok(forensicQueryService.getReplayReportBySessionId(sessionId));
     }
 
-    @Operation(summary = "Verify session hash",
-               description = "Re-computes the session hash and compares to the provided value. " +
-                             "Returns true if the session is untampered.")
+    @Operation(summary = "Verify session hash", description = "Re-computes the session hash and compares to the provided value. "
+            +
+            "Returns true if the session is untampered.")
     @GetMapping("/sessions/{sessionId}/verify")
     public ResponseEntity<Boolean> verifyReplayHash(
             @Parameter(description = "Session UUID") @PathVariable UUID sessionId,
@@ -50,11 +47,11 @@ public class ForensicQueryController {
         return ResponseEntity.ok(forensicQueryService.verifyReplayHash(sessionId, hash));
     }
 
-    @Operation(summary = "Verify individual event hashes",
-               description = "Re-computes canonical SHA-256 for every event in a session. " +
-                             "Returns only tampered events — empty list means all clean (PRD AC-08).")
+    @Operation(summary = "Verify individual event hashes", description = "Re-computes canonical SHA-256 for every event in a session. "
+            +
+            "Returns only tampered events — empty list means all clean (PRD AC-08).")
     @GetMapping("/sessions/{sessionId}/verify-hashes")
-    public ResponseEntity<List<VerificationResult>> verifyEventHashes(
+    public ResponseEntity<List<String>> verifyEventHashes(
             @Parameter(description = "Session UUID") @PathVariable UUID sessionId) {
         return ResponseEntity.ok(forensicQueryService.verifyEventHashes(sessionId));
     }

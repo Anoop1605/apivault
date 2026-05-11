@@ -1,136 +1,105 @@
 version: '3.8'
 
 services:
-
-  # ====================== DATABASE ======================
-  postgres:
-    image: postgres:15.6
-    container_name: sentinel-postgres
-    environment:
-      POSTGRES_DB: sentinel
-      POSTGRES_USER: sentinel_admin
-      POSTGRES_PASSWORD: sentinel_secret
-    ports:
-      - "5432:5432"
-    volumes:
-      - sentinel-pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentinel_admin -d sentinel"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    networks:
-      - sentinel-network
-
-  # ====================== MOCK BACKENDS ======================
-  payment-service:
-    build:
-      context: ./backend-mock-services/payment-service
-      dockerfile: Dockerfile
-    container_name: sentinel-payment
-    ports:
-      - "9001:9001"
-    networks:
-      - sentinel-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9001/api/payments || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  user-service:
-    build:
-      context: ./backend-mock-services/user-service
-      dockerfile: Dockerfile
-    container_name: sentinel-user
-    ports:
-      - "9002:9002"
-    networks:
-      - sentinel-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9002/api/users/profile || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  admin-service:
-    build:
-      context: ./backend-mock-services/admin-service
-      dockerfile: Dockerfile
-    container_name: sentinel-admin
-    ports:
-      - "9003:9003"
-    networks:
-      - sentinel-network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9003/api/admin/dashboard || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ====================== EVENT STORE ======================
-  event-store-service:
-    build:
-      context: ./event-store-service
-      dockerfile: Dockerfile
-    container_name: sentinel-event-store
-    ports:
-      - "8081:8081"
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sentinel
-      SPRING_DATASOURCE_USERNAME: sentinel_admin
-      SPRING_DATASOURCE_PASSWORD: sentinel_secret
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - sentinel-network
-
-  # ====================== POLICY ENGINE ======================
-  policy-engine-service:
-    build:
-      context: ./policy-engine-service
-      dockerfile: Dockerfile
+  # 1. The ABAC Policy Engine & Risk Scorer
+  policy-engine:
+    build: ./policy-engine-service
     container_name: sentinel-policy-engine
     ports:
       - "8082:8082"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sentinel
-      SPRING_DATASOURCE_USERNAME: sentinel_admin
-      SPRING_DATASOURCE_PASSWORD: sentinel_secret
+      - SERVER_PORT=8082
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/sentinel_db
+      - SPRING_DATASOURCE_USERNAME=sentinel
+      - SPRING_DATASOURCE_PASSWORD=sentinel
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
     networks:
       - sentinel-network
 
-  # ====================== API GATEWAY ======================
-  gateway-service:
-    build:
-      context: ./gateway-service
-      dockerfile: Dockerfile
+  # 2. The Forensics & Replay Service
+  forensics-service:
+    build: ./forensics-replay-service
+    container_name: sentinel-forensics-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SERVER_PORT=8083
+      # Overriding the localhost values to use Docker's internal DNS!
+      - POLICY_ENGINE_URL=http://policy-engine:8082
+      - EVENTSTORE_BASE_URL=http://event-store:8081
+    depends_on:
+      - policy-engine
+    networks:
+      - sentinel-network
+
+  # 3. PostgreSQL Database (For when we move away from Mock Data)
+  postgres:
+    image: postgres:15-alpine
+    container_name: sentinel-postgres
+    environment:
+      - POSTGRES_USER=sentinel
+      - POSTGRES_PASSWORD=sentinel
+      - POSTGRES_DB=sentinel_db
+    ports:
+      - "5432:5432"
+    networks:
+      - sentinel-network
+
+  event-store:
+    build: ./event-store-service
+    container_name: sentinel-event-store
+    ports:
+      - "8081:8081"
+    environment:
+      - SERVER_PORT=8081
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/sentinel_db
+      - SPRING_DATASOURCE_USERNAME=sentinel
+      - SPRING_DATASOURCE_PASSWORD=sentinel
+    depends_on:
+      - postgres
+    networks:
+      - sentinel-network
+
+  gateway:
+    build: ./gateway-service
     container_name: sentinel-gateway
     ports:
       - "8080:8080"
     environment:
-      PAYMENT_SERVICE_URL: http://payment-service:9001
-      USER_SERVICE_URL: http://user-service:9002
-      ADMIN_SERVICE_URL: http://admin-service:9003
-      EVENT_STORE_URL: http://event-store-service:8081
-      SENTINEL_JWT_PUBLIC_KEY_PATH: /run/secrets/sentinel_public_key.pem
-    volumes:
-      - ./gateway-service/src/main/resources/keys/public_key.pem:/run/secrets/sentinel_public_key.pem:ro
+      - SERVER_PORT=8080
+      - EVENT_STORE_URL=http://event-store:8081
+      - PAYMENT_SERVICE_URL=http://payment-service:9001
+      - USER_SERVICE_URL=http://user-service:9002
+      - ADMIN_SERVICE_URL=http://admin-service:9003
     depends_on:
-      - payment-service
-      - user-service
-      - admin-service
-      - event-store-service
+      - event-store
     networks:
       - sentinel-network
 
-volumes:
-  sentinel-pgdata:
-    driver: local
+  payment-service:
+    build: ./backend-mock-services/payment-service
+    container_name: sentinel-payment-service
+    ports:
+      - "9001:9001"
+    networks:
+      - sentinel-network
+
+  user-service:
+    build: ./backend-mock-services/user-service
+    container_name: sentinel-user-service
+    ports:
+      - "9002:9002"
+    networks:
+      - sentinel-network
+
+  admin-service:
+    build: ./backend-mock-services/admin-service
+    container_name: sentinel-admin-service
+    ports:
+      - "9003:9003"
+    networks:
+      - sentinel-network
 
 networks:
   sentinel-network:

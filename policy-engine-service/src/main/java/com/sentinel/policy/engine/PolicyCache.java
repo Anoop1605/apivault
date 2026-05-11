@@ -25,6 +25,11 @@ public interface PolicyCache {
     List<PolicyRuleEvaluator> getActiveEvaluators();
 
     /**
+     * Retrieves a specific compiled evaluator by rule ID for What-If simulations.
+     */
+    PolicyRuleEvaluator getEvaluator(String ruleId);
+
+    /**
      * Refreshes the cache with a new set of policy rules from the source.
      * This method is responsible for compiling the raw PolicyRule objects
      * into efficient PolicyRuleEvaluator instances and sorting them.

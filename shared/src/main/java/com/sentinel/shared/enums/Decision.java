@@ -7,5 +7,7 @@ package com.sentinel.shared.enums;
 public enum Decision {
     ALLOW,
     DENY,
-    FLAG
+    FLAG,
+    BLOCK, // Strong deny with blocking action
+    REVIEW // Flagged for manual review
 }

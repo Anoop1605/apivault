@@ -1,5 +1,6 @@
 package com.sentinel.policy.model;
 
+import com.sentinel.shared.decision.PolicyDecision;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -8,16 +9,14 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * PolicyDecision — The decision outcome from evaluating a request against
- * policies.
- * Records which rule matched, the decision (ALLOW/DENY), and supporting
- * context.
+ * PolicyDecision — The decision outcome from evaluating a request against policies.
+ * Records which rule matched, the decision (ALLOW/DENY), and supporting context.
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PolicyDecision {
+public class PolicyEvaluationResult {
 
     private String ruleId;
     private String decision;

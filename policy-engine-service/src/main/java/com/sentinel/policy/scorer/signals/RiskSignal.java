@@ -2,16 +2,28 @@ package com.sentinel.policy.scorer.signals;
 
 import com.sentinel.shared.context.RequestContext;
 
+/**
+ * Contract for all behavioral risk heuristics.
+ * By implementing this interface, new signals can be dynamically added
+ * without modifying the core BehavioralRiskScorer.
+ */
 public interface RiskSignal {
 
-    /**  The main job — analyse the request, return 0.0 (safe) to 1.0 (max risk) */
+    /**
+     * Evaluates the request context and returns a risk score.
+     *
+     * @param ctx the incoming request context
+     * @return a risk score between 0.0 (normal) and 1.0 (high risk)
+     */
     double evaluate(RequestContext ctx);
 
-    /** Unique identifier — used as the key in RiskScoreResult.signalBreakdown */
+    /**
+     * @return the unique identifier for this signal (e.g., "jwt_anomaly")
+     */
     String name();
 
-    /** How much this signal contributes to the final score. Default = 25% */
-    default double weight() {
-        return 0.25;
-    }
+    /**
+     * @return the weight this signal carries in the final weighted average
+     */
+    double weight();
 }

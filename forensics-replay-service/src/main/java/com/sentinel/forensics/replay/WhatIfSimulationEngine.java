@@ -3,7 +3,10 @@ package com.sentinel.forensics.replay;
 import com.sentinel.shared.dto.EventDTO;
 import com.sentinel.shared.dto.PolicySnapshot;
 import com.sentinel.shared.dto.ReplayReport;
-import com.sentinel.shared.dto.StepDecision;
+import com.sentinel.shared.enums.Decision;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,46 +24,65 @@ import java.util.UUID;
  * stricter rules?" — e.g. the attack would have been blocked at step 2
  * instead of step 5.
  */
+@Slf4j
+@Service
+@RequiredArgsConstructor
 public class WhatIfSimulationEngine {
+
+    private final ReplayEngine replayEngine;
 
     /**
      * Simulate replay with an alternate PolicySnapshot.
      *
      * @param sessionId         Session UUID
-     * @param events            All events for the session (will be sorted internally)
+     * @param events            All events for the session (will be sorted
+     *                          internally)
      * @param originalSnapshot  The frozen snapshot used in the real gateway run
      * @param alternateSnapshot The modified rule set to test
      * @return ReplayReport with per-step original vs simulated decisions,
      *         firstDivergenceStep, and snapshotIdUsed
      */
     public ReplayReport simulate(UUID sessionId,
-                                  List<EventDTO> events,
-                                  PolicySnapshot originalSnapshot,
-                                  PolicySnapshot alternateSnapshot) {
+            List<EventDTO> events,
+            PolicySnapshot originalSnapshot,
+            PolicySnapshot alternateSnapshot) {
 
         List<EventDTO> sortedEvents = new ArrayList<>(events);
         sortedEvents.sort(Comparator.comparingLong(EventDTO::getTimestampNs));
 
-        List<StepDecision> steps        = new ArrayList<>();
-        List<String> originalDecisions  = new ArrayList<>();
-        List<String> simulatedDecisions = new ArrayList<>();
+        List<ReplayReport.StepDecision> steps = new ArrayList<>();
+        List<Decision> originalDecisions = new ArrayList<>();
+        List<Decision> simulatedDecisions = new ArrayList<>();
         int firstDivergenceStep = -1;
 
         for (int i = 0; i < sortedEvents.size(); i++) {
             EventDTO event = sortedEvents.get(i);
 
             // Evaluate with original frozen snapshot
-            String[] original   = ReplayEngine.evaluateRules(event, originalSnapshot);
+            EvaluationResult originalEval = replayEngine.evaluateRules(event, originalSnapshot);
             // Evaluate with alternate (what-if) snapshot
-            String[] simulated  = ReplayEngine.evaluateRules(event, alternateSnapshot);
+            EvaluationResult simulatedEval = replayEngine.evaluateRules(event, alternateSnapshot);
 
-            String origDecision = original[0];
-            String simDecision  = simulated[0];
-            String ruleMatched  = simulated[1] != null ? simulated[1] : original[1];
+            Decision origDecision = Decision.valueOf(originalEval.getDecision());
+            Decision simDecision = Decision.valueOf(simulatedEval.getDecision());
+            String ruleMatched = simulatedEval.getRuleMatched() != null
+                    ? simulatedEval.getRuleMatched()
+                    : originalEval.getRuleMatched();
 
-            StepDecision step = new StepDecision(event, origDecision, simDecision, ruleMatched);
+            // Build ReplayReport.StepDecision (the nested class)
+            ReplayReport.StepDecision step = ReplayReport.StepDecision.builder()
+                    .eventId(event.getEventId())
+                    .timestampNs(event.getTimestampNs())
+                    .eventType(event.getEventType() != null ? event.getEventType().toString() : "UNKNOWN")
+                    .endpoint(event.getEndpoint())
+                    .httpMethod(event.getHttpMethod())
+                    .originalDecision(origDecision)
+                    .simulatedDecision(simDecision)
+                    .ruleId(ruleMatched)
+                    .riskScore(event.getRiskScore())
+                    .build();
+
             steps.add(step);
-
             originalDecisions.add(origDecision);
             simulatedDecisions.add(simDecision);
 
@@ -70,14 +92,14 @@ public class WhatIfSimulationEngine {
             }
         }
 
-        ReplayReport report = new ReplayReport();
-        report.setSessionId(sessionId);
-        report.setSteps(steps);
-        report.setOriginalDecisions(originalDecisions);
-        report.setSimulatedDecisions(simulatedDecisions);
-        report.setFirstDivergenceStep(firstDivergenceStep);
-        // snapshotIdUsed comes from the alternateSnapshot once real persistence is in place
-        report.setSnapshotIdUsed(null);
+        ReplayReport report = ReplayReport.builder()
+                .sessionId(sessionId)
+                .steps(steps)
+                .originalDecisions(originalDecisions)
+                .simulatedDecisions(simulatedDecisions)
+                .firstDivergenceStep(firstDivergenceStep)
+                .snapshotIdUsed(null) // TODO: use real snapshot ID when persistence added
+                .build();
 
         return report;
     }
@@ -87,8 +109,8 @@ public class WhatIfSimulationEngine {
      * with callers that only provide the alternate snapshot).
      */
     public ReplayReport simulate(UUID sessionId,
-                                  List<EventDTO> events,
-                                  PolicySnapshot alternateSnapshot) {
+            List<EventDTO> events,
+            PolicySnapshot alternateSnapshot) {
         return simulate(sessionId, events,
                 new PolicySnapshot(java.util.Collections.emptyList()),
                 alternateSnapshot);
