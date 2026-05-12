@@ -65,6 +65,8 @@ public class PolicyCacheImpl implements PolicyCache {
             // Create the evaluator record
             PolicyRuleEvaluator evaluator = new PolicyRuleEvaluator(
                     rule.getRuleId(),
+                    rule.getVersion(),
+                    rule.getId(), // Using rule UUID as the default snapshotId for the demo
                     Decision.valueOf(rule.getEffect().toUpperCase()), // Convert String to Decision enum
                     rule.getPriority(),
                     compiledPredicate);

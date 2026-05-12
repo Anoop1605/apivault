@@ -48,6 +48,10 @@ public class ConditionEvaluator {
                     return compileIPCondition(operator, value);
                 case "RISK":
                     return compileRiskCondition(operator, value);
+                case "ENDPOINT":
+                    return compileEndpointCondition(operator, value);
+                case "METHOD":
+                    return compileMethodCondition(operator, value);
                 default:
                     log.warn("Unknown condition type: {}", type);
                     return ctx -> false;
@@ -127,6 +131,33 @@ public class ConditionEvaluator {
             return ctx -> targetIp.equals(ctx.getSourceIp());
         }
         return ctx -> false;
+    }
+
+    /**
+     * Compiles ENDPOINT condition.
+     */
+    private static Predicate<RequestContext> compileEndpointCondition(String operator, Object value) {
+        String targetEndpoint = value.toString();
+
+        switch (operator.toUpperCase()) {
+            case "EQUALS":
+                return ctx -> targetEndpoint.equalsIgnoreCase(ctx.getEndpoint());
+            case "CONTAINS":
+                return ctx -> ctx.getEndpoint() != null && ctx.getEndpoint().toLowerCase().contains(targetEndpoint.toLowerCase());
+            case "STARTS_WITH":
+                return ctx -> ctx.getEndpoint() != null && ctx.getEndpoint().toLowerCase().startsWith(targetEndpoint.toLowerCase());
+            default:
+                return ctx -> false;
+        }
+    }
+
+    /**
+     * Compiles METHOD condition.
+     */
+    private static Predicate<RequestContext> compileMethodCondition(String operator, Object value) {
+        String targetMethod = value.toString().toUpperCase();
+
+        return ctx -> targetMethod.equals(ctx.getHttpMethod());
     }
 
     /**

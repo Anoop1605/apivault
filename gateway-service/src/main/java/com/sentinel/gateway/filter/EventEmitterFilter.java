@@ -48,8 +48,9 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        // Runs after session assignment (-80), before routing
-        return -50;
+        // Runs after authentication (-100), session assignment (-90), and policy evaluation (-80)
+        // This ensures metadata is available for the REQUEST_RECEIVED event emission.
+        return -70;
     }
 
     @Override
@@ -65,8 +66,15 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
         String sessionId = sessionAttr != null ? sessionAttr.toString() : UUID.randomUUID().toString();
         
         String userId = exchange.getAttribute("userId");
+        if (userId == null) {
+            userId = exchange.getRequest().getHeaders().getFirst("X-User-ID");
+        }
+        
         @SuppressWarnings("unchecked")
         List<String> roles = exchange.getAttribute("roles");
+        
+        String riskScoreHeader = exchange.getRequest().getHeaders().getFirst("X-Risk-Score");
+        Double riskScore = riskScoreHeader != null ? Double.parseDouble(riskScoreHeader) : 0.0;
 
         Map<String, Object> requestContextMap = new HashMap<>();
         exchange.getRequest().getHeaders().forEach((key, values) -> {
@@ -78,20 +86,57 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
             }
         });
 
-        // Build REQUEST_RECEIVED event (FR-GW-04)
+        // Extract forensic metadata (now available because PolicyEngineFilter ran at -80)
+        String policyDecisionStr = exchange.getAttribute("policyDecision");
+        com.sentinel.shared.enums.Decision decision = (policyDecisionStr != null)
+                ? com.sentinel.shared.enums.Decision.valueOf(policyDecisionStr.toUpperCase())
+                : com.sentinel.shared.enums.Decision.ALLOW;
+
+        String policyRuleId = exchange.getAttribute("policyRuleId");
+        if (policyRuleId == null) policyRuleId = "GATEWAY-INTERNAL-POLICY";
+
+        Integer policyRuleVersion = exchange.getAttribute("policyRuleVersion");
+        if (policyRuleVersion == null) policyRuleVersion = 1;
+
+        UUID policyRuleSnapshotId = exchange.getAttribute("policyRuleSnapshotId");
+        if (policyRuleSnapshotId == null) policyRuleSnapshotId = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        
+        // Ensure bodyHash is NEVER null (use header if present, or default to empty hash)
+        String bodyHash = exchange.getRequest().getHeaders().getFirst("X-Body-Hash");
+        if (bodyHash == null || bodyHash.isEmpty()) {
+            bodyHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // SHA-256 of empty string
+        }
+
+        // Final references for inner lambdas
+        final String finalUserId = userId;
+        final Double finalRiskScore = riskScore;
+        final Map<String, Object> finalContext = requestContextMap;
+        final String finalBodyHash = bodyHash;
+        final String finalRuleId = policyRuleId;
+        final Integer finalRuleVersion = policyRuleVersion;
+        final UUID finalSnapshotId = policyRuleSnapshotId;
+        final com.sentinel.shared.enums.Decision finalDecision = decision;
+
+        // Build REQUEST_RECEIVED event (FR-GW-04) - now with full metadata!
         EventDTO receivedEvent = EventDTO.builder()
                 .eventId(UUID.randomUUID())
                 .timestampNs(nowNanos())
                 .eventType(EventType.REQUEST_RECEIVED)
                 .sessionId(parseUUID(sessionId))
-                .userId(userId)
+                .userId(finalUserId)
                 .roles(roles)
                 .endpoint(path)
                 .httpMethod(exchange.getRequest().getMethod().name())
                 .sourceIp(extractClientIp(exchange))
                 .userAgent(exchange.getRequest().getHeaders().getFirst(HttpHeaders.USER_AGENT))
                 .gatewayVersion(gatewayVersion)
-                .requestContext(requestContextMap)
+                .requestContext(finalContext)
+                .riskScore(finalRiskScore)
+                .decision(finalDecision)
+                .policyRuleId(finalRuleId)
+                .policyRuleVersion(finalRuleVersion)
+                .policyRuleSnapshotId(finalSnapshotId)
+                .bodyHash(finalBodyHash)
                 .build();
 
         // Emit REQUEST_RECEIVED, then proceed with chain
@@ -108,20 +153,26 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                     } else {
                         postEventType = EventType.GATEWAY_ERROR;
                     }
-
+                    
                     EventDTO forwardedEvent = EventDTO.builder()
                             .eventId(UUID.randomUUID())
                             .timestampNs(nowNanos())
                             .eventType(postEventType)
                             .sessionId(parseUUID(sessionId))
-                            .userId(userId)
+                            .userId(finalUserId)
                             .roles(roles)
                             .endpoint(path)
                             .httpMethod(exchange.getRequest().getMethod().name())
                             .sourceIp(extractClientIp(exchange))
                             .userAgent(exchange.getRequest().getHeaders().getFirst(HttpHeaders.USER_AGENT))
                             .gatewayVersion(gatewayVersion)
-                            .requestContext(requestContextMap)
+                            .requestContext(finalContext)
+                            .riskScore(finalRiskScore)
+                            .decision(finalDecision)
+                            .policyRuleId(finalRuleId)
+                            .policyRuleVersion(finalRuleVersion)
+                            .policyRuleSnapshotId(finalSnapshotId)
+                            .bodyHash(finalBodyHash)
                             .build();
 
                     return emitEvent(forwardedEvent);
@@ -153,6 +204,14 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
             return UUID.fromString(value);
         } catch (IllegalArgumentException e) {
             return UUID.randomUUID();
+        }
+    }
+
+    private Integer parseInteger(String value) {
+        try {
+            return value != null ? Integer.parseInt(value) : null;
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 

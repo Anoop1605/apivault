@@ -19,6 +19,15 @@ public class ForensicQueryController {
     }
 
     /**
+     * GET /events/sessions
+     * Returns all unique session IDs captured in the event store.
+     */
+    @GetMapping("/sessions")
+    public ResponseEntity<List<UUID>> getAllSessions() {
+        return ResponseEntity.ok(eventQueryService.getAllSessionIds());
+    }
+
+    /**
      * GET /events/sessions/{sessionId}
      * Returns all events for the given session, ordered by timestamp ascending.
      * Called by forensics-replay-service via RestEventStoreClient.

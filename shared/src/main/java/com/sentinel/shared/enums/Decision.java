@@ -9,5 +9,7 @@ public enum Decision {
     DENY,
     FLAG,
     BLOCK, // Strong deny with blocking action
-    REVIEW // Flagged for manual review
+    REVIEW, // Flagged for manual review
+    NONE, // No decision made yet (e.g., REQUEST_RECEIVED)
+    NOT_APPLICABLE // Decision not relevant (e.g., GATEWAY_ERROR)
 }

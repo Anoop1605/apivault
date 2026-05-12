@@ -25,8 +25,8 @@ public class SessionAssignFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        // Runs after JWT auth filter (-100) but before event emitter (-50)
-        return -80;
+        // Runs after authentication (-100), before event receipt (-80)
+        return -90;
     }
 
     @Override

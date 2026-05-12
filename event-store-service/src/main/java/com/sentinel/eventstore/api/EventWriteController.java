@@ -46,10 +46,12 @@ public class EventWriteController {
                     .timestampNs(saved.getTimestampNs())
                     .eventType(saved.getEventType())
                     .sessionId(saved.getSessionId())
+                    .userId(saved.getUserId())
                     .decision(saved.getDecision())
                     .endpoint(saved.getEndpoint())
+                    .httpMethod(saved.getHttpMethod())
                     .sourceIp(saved.getSourceIp())
-                    .policyRuleId(saved.getRuleMatched())
+                    .riskScore(saved.getRiskScore())
                     .build();
 
             return ResponseEntity.status(HttpStatus.CREATED).body(responseDto);

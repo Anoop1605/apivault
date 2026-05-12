@@ -71,26 +71,52 @@ public class ForensicQueryService {
      *
      * TODO: Replace with real session registry when persistence is available.
      */
+    /**
+     * Lists session summaries. Fetches real session IDs from the Event Store
+     * and derives summaries from the actual event stream.
+     */
     public List<SessionSummaryDTO> listReplaySessions() {
-        // 3 known demo fixture sessions (F01, F02, F03)
-        List<UUID> knownSessions = List.of(
-                UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001"),
-                UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002"),
-                UUID.fromString("cccccccc-0000-0000-0000-000000000003"));
+        // Fetch real session IDs from the Event Store API
+        List<UUID> activeSessions = eventStoreClient.fetchSessionIds();
+        
+        if (activeSessions == null || activeSessions.isEmpty()) {
+            return Collections.emptyList();
+        }
 
         List<SessionSummaryDTO> summaries = new java.util.ArrayList<>();
-        for (UUID sessionId : knownSessions) {
+        for (UUID sessionId : activeSessions) {
             List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
             if (events == null || events.isEmpty())
                 continue;
 
             long start = events.stream().mapToLong(EventDTO::getTimestampNs).min().orElse(0);
             long end = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
+            
+            // Derive security metrics from the event stream
+            String userId = events.stream()
+                    .filter(e -> e.getUserId() != null)
+                    .map(EventDTO::getUserId)
+                    .findFirst()
+                    .orElse("anonymous");
+            
+            double maxRisk = events.stream()
+                    .mapToDouble(e -> e.getRiskScore() != null ? e.getRiskScore() : 0.0)
+                    .max()
+                    .orElse(0.0);
+            
+            long denyCount = events.stream()
+                    .filter(e -> e.getDecision() == com.sentinel.shared.enums.Decision.DENY)
+                    .count();
+
+            // For summary purposes, we use an empty snapshot for the base hash
             PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
             String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 
             summaries.add(SessionSummaryDTO.builder()
                     .sessionId(sessionId)
+                    .userId(userId)
+                    .maxRiskScore(maxRisk)
+                    .denyCount((int) denyCount)
                     .firstSeenNs(start)
                     .lastSeenNs(end)
                     .eventCount(events.size())

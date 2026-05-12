@@ -114,6 +114,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
      * Emit AUTH_FAILED event to event-store-service.
      */
     private Mono<Void> emitAuthFailedEvent(ServerWebExchange exchange, String reason, String token) {
+        log.info("Emitting AUTH_FAILED. Headers: {}", exchange.getRequest().getHeaders());
         Object sessionAttr = exchange.getAttribute("sessionId");
         String sessionIdStr = sessionAttr != null ? sessionAttr.toString() : UUID.randomUUID().toString();
         UUID sessionId;
@@ -123,16 +124,41 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             sessionId = UUID.randomUUID();
         }
 
+        String userId = exchange.getRequest().getHeaders().getFirst("X-User-ID");
+        String riskScoreHeader = exchange.getRequest().getHeaders().getFirst("X-Risk-Score");
+        Double riskScore = riskScoreHeader != null ? Double.parseDouble(riskScoreHeader) : 0.0;
+
+        String policyRuleId = exchange.getRequest().getHeaders().getFirst("X-Policy-Rule-ID");
+        if (policyRuleId == null) policyRuleId = "AUTH-POLICY-DEFAULT";
+
+        Integer policyRuleVersion = parseInteger(exchange.getRequest().getHeaders().getFirst("X-Policy-Rule-Version"));
+        if (policyRuleVersion == null) policyRuleVersion = 1;
+
+        UUID policyRuleSnapshotId = parseUUID(exchange.getRequest().getHeaders().getFirst("X-Policy-Rule-Snapshot-ID"));
+        if (policyRuleSnapshotId == null) policyRuleSnapshotId = UUID.fromString("00000000-0000-0000-0000-000000000000");
+
+        String bodyHash = exchange.getRequest().getHeaders().getFirst("X-Body-Hash");
+        if (bodyHash == null || bodyHash.isEmpty()) {
+            bodyHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // SHA-256 of empty string
+        }
+
         EventDTO event = EventDTO.builder()
                 .eventId(UUID.randomUUID())
                 .timestampNs(Instant.now().getEpochSecond() * 1_000_000_000L + Instant.now().getNano())
                 .eventType(EventType.AUTH_FAILED)
                 .sessionId(sessionId)
+                .userId(userId != null ? userId : "unauthenticated")
+                .riskScore(riskScore)
+                .decision(com.sentinel.shared.enums.Decision.DENY)
                 .endpoint(exchange.getRequest().getURI().getPath())
                 .httpMethod(exchange.getRequest().getMethod().name())
                 .sourceIp(extractClientIp(exchange))
                 .userAgent(exchange.getRequest().getHeaders().getFirst(HttpHeaders.USER_AGENT))
                 .gatewayVersion(gatewayVersion)
+                .policyRuleId(policyRuleId)
+                .policyRuleVersion(policyRuleVersion)
+                .policyRuleSnapshotId(policyRuleSnapshotId)
+                .bodyHash(bodyHash)
                 .build();
 
         return webClientBuilder.build()
@@ -147,6 +173,22 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private boolean isPublicPath(String path) {
         return publicPaths.stream().anyMatch(path::startsWith);
+    }
+
+    private Integer parseInteger(String value) {
+        try {
+            return value != null ? Integer.parseInt(value) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private UUID parseUUID(String value) {
+        try {
+            return value != null ? UUID.fromString(value) : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private String extractClientIp(ServerWebExchange exchange) {

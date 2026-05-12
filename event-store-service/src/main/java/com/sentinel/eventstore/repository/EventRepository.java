@@ -13,4 +13,9 @@ public interface EventRepository extends JpaRepository<SecurityEvent, UUID> {
     List<SecurityEvent> findBySessionIdOrderByTimestampNsAsc(UUID sessionId);
 
     boolean existsBySessionId(UUID sessionId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT e.sessionId FROM SecurityEvent e")
+    List<UUID> findDistinctSessionIds();
+
+    SecurityEvent findTopByOrderByTimestampNsDesc();
 }

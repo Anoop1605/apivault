@@ -15,11 +15,17 @@ import java.util.UUID;
  * F02 violation: bbbbbbbb-0000-0000-0000-000000000002
  * F03 attack: cccccccc-0000-0000-0000-000000000003
  */
+@org.springframework.stereotype.Component
 public class MockEventStoreClient implements EventStoreClient {
 
     private static final UUID SESSION_NORMAL = UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001");
     private static final UUID SESSION_VIOLATION = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
     private static final UUID SESSION_ATTACK = UUID.fromString("cccccccc-0000-0000-0000-000000000003");
+
+    @Override
+    public List<UUID> fetchSessionIds() {
+        return List.of(SESSION_NORMAL, SESSION_VIOLATION, SESSION_ATTACK);
+    }
 
     @Override
     public List<EventDTO> fetchEvents(UUID sessionId) {

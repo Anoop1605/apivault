@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // Service URLs from environment or defaults
 const FORENSICS_API_URL = import.meta.env.VITE_FORENSICS_API_URL || 'http://localhost:8083'
-const MOCK_API_URL = import.meta.env.VITE_MOCK_API_URL || 'http://localhost:9001'
+const MOCK_API_URL = import.meta.env.VITE_MOCK_API_URL || 'http://localhost:8080'
 const EVENT_STORE_URL = import.meta.env.VITE_EVENT_STORE_URL || 'http://localhost:8081'
 
 // Create axios instances for different services

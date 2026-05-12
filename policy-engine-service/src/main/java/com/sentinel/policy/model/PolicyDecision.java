@@ -20,6 +20,8 @@ import java.util.List;
 public class PolicyDecision {
 
     private String ruleId;
+    private Integer ruleVersion;
+    private java.util.UUID snapshotId;
     private String decision;
     private List<String> matchedConditions;
     private long evaluationTimeNs;

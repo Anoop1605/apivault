@@ -26,6 +26,12 @@ spring:
           predicates:
             - Path=/api/admin/**
 
+        # Route to Forensics Service (P2 replay service)
+        - id: forensics-service
+          uri: ${FORENSICS_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/forensics/**
+
 # Sentinel-specific configuration
 sentinel:
   jwt:

@@ -30,10 +30,29 @@ public class EventQueryService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Returns all unique session IDs captured in the store.
+     */
+    public List<UUID> getAllSessionIds() {
+        return eventRepository.findDistinctSessionIds();
+    }
+
     private EventDTO toDTO(SecurityEvent event) {
-        EventDTO dto = new EventDTO();
-        dto.setSessionId(event.getSessionId());
-        dto.setTimestampNs(event.getTimestampNs());
-        return dto;
+        return EventDTO.builder()
+                .eventId(event.getId())
+                .sessionId(event.getSessionId())
+                .userId(event.getUserId())
+                .timestampNs(event.getTimestampNs())
+                .eventType(event.getEventType())
+                .decision(event.getDecision())
+                .sourceIp(event.getSourceIp())
+                .endpoint(event.getEndpoint())
+                .httpMethod(event.getHttpMethod())
+                .riskScore(event.getRiskScore())
+                .policyRuleId(event.getPolicyRuleId())
+                .policyRuleVersion(event.getPolicyRuleVersion())
+                .policyRuleSnapshotId(event.getPolicyRuleSnapshotId())
+                .bodyHash(event.getBodyHash())
+                .build();
     }
 }

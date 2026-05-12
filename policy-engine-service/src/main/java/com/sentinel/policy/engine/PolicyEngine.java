@@ -26,6 +26,35 @@ public class PolicyEngine {
     private final PolicyCache policyCache;
 
     /**
+     * Evaluate a request and return a full PolicyDecision object.
+     * This is the REAL evaluation hot-path.
+     */
+    public PolicyDecision evaluateToDecision(RequestContext context) {
+        long startNs = System.nanoTime();
+
+        List<PolicyRuleEvaluator> evaluators = policyCache.getActiveEvaluators();
+
+        for (PolicyRuleEvaluator evaluator : evaluators) {
+            if (evaluator.matches(context)) {
+                return PolicyDecision.builder()
+                        .ruleId(evaluator.ruleId())
+                        .ruleVersion(evaluator.ruleVersion())
+                        .snapshotId(evaluator.snapshotId())
+                        .decision(evaluator.effect().toString())
+                        .evaluationTimeNs(System.nanoTime() - startNs)
+                        .build();
+            }
+        }
+
+        // Default: DENY if no rule matches
+        return PolicyDecision.builder()
+                .ruleId("POLICY_NO_MATCH")
+                .decision("DENY")
+                .evaluationTimeNs(System.nanoTime() - startNs)
+                .build();
+    }
+
+    /**
      * Evaluate a request against all active policies.
      * Returns the first matching rule's decision (ALLOW/DENY).
      *
@@ -33,24 +62,8 @@ public class PolicyEngine {
      * @return The policy decision: ALLOW if no rule denies, otherwise DENY
      */
     public String evaluate(RequestContext context) {
-        long startNs = System.nanoTime();
-
-        // Get active, pre-compiled evaluators from cache (O(1) lookup)
-        List<PolicyRuleEvaluator> evaluators = policyCache.getActiveEvaluators();
-
-        for (PolicyRuleEvaluator evaluator : evaluators) {
-            if (evaluator.matches(context)) {
-                long elapsedNs = System.nanoTime() - startNs;
-                log.debug("Policy matched: ruleId={}, effect={}, elapsedNs={}",
-                        evaluator.getRuleId(), evaluator.getEffect(), elapsedNs);
-                return evaluator.getEffect().toString();
-            }
-        }
-
-        // Default: DENY if no rule explicitly matches (Zero Trust)
-        long elapsedNs = System.nanoTime() - startNs;
-        log.debug("No policy matched; defaulting to DENY. elapsedNs={}", elapsedNs);
-        return "POLICY_NO_MATCH";
+        PolicyDecision decision = evaluateToDecision(context);
+        return decision.getDecision();
     }
 
     /**

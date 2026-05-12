@@ -1,0 +1,314 @@
+SENTINEL
+Event-Sourced Replayable API Gateway
+for Zero-Trust Security & Forensic Policy Reconstruction
+PRODUCT REQUIREMENTS DOCUMENT
+Version 2.0 — Engineering-Complete Edition
+
+
+CONFIDENTIAL — FOR INTERNAL PROJECT USE ONLY
+
+Document Revision History
+
+1. Executive Summary
+Sentinel is a production-grade, distributed API Security Gateway built on Spring Boot and Spring Cloud Gateway. It addresses a critical forensic gap in modern API security: when a cyberattack occurs, conventional gateways provide only a timestamp, status code, and IP address — wholly insufficient to reconstruct the mechanics of a breach, understand why a specific decision was made, or simulate what stricter policies might have prevented.
+Sentinel closes this gap through three deeply integrated innovations:
+Event Sourcing — every security decision is stored as an immutable, append-only event with full context (identity, policy rule fired, risk score, request fingerprint).
+Zero-Trust ABAC Policy Engine — contextual Attribute-Based Access Control ensures no request is trusted by default; decisions combine JWT identity, endpoint, time-of-day, IP range, and behavioral risk score.
+Forensic Replay Engine — a novel component that reconstructs the exact gateway state at any past timestamp and simulates alternative policy outcomes ("what-if" analysis).
+This document is Version 2.0. It resolves all engineering gaps identified in the v1.0 review: locked dependency versions, append-only database enforcement DDL, SHA-256 event hash canonicalization, policy rule snapshot history, JWT key management, runtime policy refresh contract, data retention policy, demo fixture plan, and Prometheus metrics definitions.
+2. Product Vision & Goals
+2.1 Vision Statement
+To be the reference implementation of a forensic-first, zero-trust API gateway — one that treats every security decision as a first-class, durable, replayable artifact rather than a disposable log entry.
+2.2 Problem Statement
+Traditional API gateways (Kong, AWS API Gateway, NGINX) log the outcome of a request but discard the decision context. Security teams investigating a breach are left with incomplete evidence.
+2.3 Objectives
+2.4 Out of Scope
+Production Kafka streaming deployment (listed as optional Phase 4 upgrade)
+Machine-learning-based anomaly detection (risk scorer uses deterministic weighted signals only)
+Multi-region distributed gateway deployment
+OAuth 2.0 / OIDC provider integration (JWT validation only, no issuer flow)
+Real PII or live production traffic (system uses synthetic/mock data)
+Commercial SLA or uptime guarantees
+3. Stakeholders & User Personas
+3.1 Stakeholders
+3.2 User Personas
+Persona 1 — The Security Investigator
+
+Persona 2 — The Platform Security Engineer
+
+Persona 3 — The Compliance Auditor
+4. Scope
+4.1 In Scope
+5. Functional Requirements
+All requirements are tagged with a unique ID, priority (P0 = must-have, P1 = should-have), and implementation phase.
+5.1 API Gateway & Routing
+5.2 Authentication
+  NEW IN v2.0: FR-AU-06 — JWT key management and rotation specification
+5.3 Zero-Trust ABAC Policy Engine
+  NEW IN v2.0: FR-PE-06 expanded with exact runtime refresh contract; FR-PE-08 updated with policy_rule_snapshot_id.
+5.4 Behavioral Risk Scorer
+5.5 Event Store
+  NEW IN v2.0: FR-ES-01 expanded with trigger + role spec; FR-ES-08 adds retention policy.
+5.6 Forensic Replay Engine
+  NEW IN v2.0: FR-RE-02 explicitly requires frozen rule snapshots for deterministic replay.
+5.7 Forensic Dashboard
+  NEW IN v2.0: FR-DB-07 adds specific Prometheus metric names and alert thresholds.
+6. Non-Functional Requirements
+6.1 Performance
+6.2 Reliability & Data Integrity
+6.3 Security
+6.4 Maintainability & Observability
+6.5 Scalability (Design-for)
+The current implementation targets a single-node Docker Compose deployment. The architecture MUST be designed so that horizontal scaling is possible without architectural changes:
+Stateless gateway instances (session state in event store, not in-memory)
+PostgreSQL connection pooling (HikariCP) configured for pool-based scaling
+Risk scorer state (IP history, rate windows) designed for externalized Redis replacement in future
+Event store write path designed for Kafka drop-in replacement (Phase 4 optional upgrade)
+7. System Architecture
+7.1 High-Level Architecture Overview
+7.2 Request Processing Flow
+8. Data Model & Schema
+8.1 Events Table (Core Append-Only Store)
+The events table is the heart of Sentinel. It is strictly append-only. A database-level trigger rejects any UPDATE or DELETE. The event_writer database role has INSERT-only privileges on this table. See Section 10.4 for the full DDL.
+  NEW IN v2.0: policy_rule_snapshot_id column added to events table.
+8.2 Policy Rules Table
+8.3 Policy Rules History Table [NEW IN v2.0]
+  NEW IN v2.0 — This table is essential for deterministic forensic replay.
+This table stores a frozen immutable snapshot of every policy rule at the exact moment it was activated. Events in the events table reference this table via policy_rule_snapshot_id. The replay engine loads the snapshot from this table — never the current rule definition — ensuring that replays are deterministic regardless of subsequent rule changes.
+Rows in this table are NEVER updated or deleted. When a rule is updated, the old snapshot row has deactivated_at set, and a new snapshot row is inserted. A trigger enforces this immutability.
+8.4 Sessions Summary Table (Materialised / Derived)
+8.5 Key Indexes
+9. API Specifications
+All APIs are documented using OpenAPI 3.0. Full schema definitions are maintained in /docs/api/ in the repository.
+9.1 Forensic Event Query API
+9.2 Policy Management API
+9.3 Gateway Health & Metrics API
+10. Security Requirements
+10.1 Authentication & Authorisation
+All protected routes MUST require a valid, unexpired, correctly-signed JWT.
+JWT signing algorithm SHALL be RS256 (asymmetric); HS256 is NOT permitted.
+Role-based access to forensic and admin APIs SHALL be enforced at the Spring Security method level, not only at the gateway filter level.
+Separate roles: GATEWAY_USER (pass-through), POLICY_ADMIN (rule management), FORENSICS_ADMIN (replay, export, simulation).
+10.2 JWT Key Management & Rotation [NEW IN v2.0]
+  NEW IN v2.0 — Answers how RS256 keys are provisioned, used, and rotated.
+Key Provisioning:
+Development / Demo: RS256 private key PEM file mounted into the gateway container at /run/secrets/sentinel_private_key.pem via Docker Compose volumes. The corresponding public key PEM is mounted at /run/secrets/sentinel_public_key.pem. Gateway reads key paths from environment variables SENTINEL_JWT_PRIVATE_KEY_PATH and SENTINEL_JWT_PUBLIC_KEY_PATH at startup.
+CI Pipeline: Keys injected as base64-encoded environment variables SENTINEL_JWT_PRIVATE_KEY_B64 and SENTINEL_JWT_PUBLIC_KEY_B64. Gateway decodes and loads from environment on startup.
+Keys are generated using RSA-2048 minimum. Example: openssl genrsa -out private_key.pem 2048 && openssl rsa -in private_key.pem -pubout -out public_key.pem
+Key Rotation Procedure (Demo-testable):
+Step 1: Generate new RSA key pair.
+Step 2: Replace mounted key files (or update environment variables).
+Step 3: Restart gateway container only (docker-compose restart gateway). No data loss; event store is unaffected.
+Step 4: Issue new JWTs signed with the new private key. Old tokens signed with the old key will fail validation immediately.
+Future (OIDC/JWKS path): The signing key location is abstracted behind a KeyProvider interface. A future JWKS endpoint implementation can be substituted without changing JWT validation logic.
+Key security rules: Private key file MUST have chmod 400. Private key MUST NOT be committed to version control. .gitignore MUST include *.pem.
+10.3 Event Hash Canonicalization — SHA-256 Specification [NEW IN v2.0]
+  NEW IN v2.0 — Defines deterministic canonical serialization for tamper-evident hashing.
+Without a deterministic canonical serialization, SHA-256 hash computation is non-reproducible across implementations. The following specification MUST be followed exactly.
+Fields covered by event_hash (in this exact order):
+event_id (UUID string, lowercase with hyphens, e.g., a3f1c2d4-e5b6-7890-abcd-ef1234567890)
+timestamp_ns (decimal string representation of the BIGINT, e.g., "1707825840123456789")
+event_type (string, e.g., "POLICY_DENIED")
+session_id (UUID string, lowercase with hyphens)
+user_id (string, or "null" if NULL)
+endpoint (string)
+http_method (string, uppercase)
+decision (string, or "null" if NULL)
+policy_rule_id (string, or "null" if NULL)
+policy_rule_version (decimal string, or "null" if NULL)
+risk_score (6 decimal place string, or "null" if NULL, e.g., "0.620000")
+body_hash (hex string, or "null" if NULL)
+gateway_version (string)
+Canonical serialization algorithm:
+1. For each field above, in the exact order listed:
+     a. Convert to string using the rules above (NULL -> literal "null")
+     b. Append field_name=field_value
+     c. Append a single pipe | separator
+2. Concatenate all field strings (no leading/trailing whitespace)
+3. Encode the resulting string as UTF-8 bytes
+4. Compute SHA-256 digest of the UTF-8 bytes
+5. Encode digest as lowercase hexadecimal string (64 chars)
+6. Store in event_hash column
+Example canonical string (before hashing):
+event_id=a3f1c2d4-e5b6-7890-abcd-ef1234567890|timestamp_ns=1707825840123456789|event_type=POLICY_DENIED|session_id=b1e2f3a4-c5d6-7890-1234-abcdef567890|user_id=user-9921|endpoint=/api/payments/delete|http_method=DELETE|decision=DENY|policy_rule_id=FIN-DELETE-BUSINESS-HOURS-01|policy_rule_version=1|risk_score=0.620000|body_hash=e3b0c44298fc1c149afb|gateway_version=1.0.0|
+A HashVerificationUtil class SHALL be implemented that reads events from the store, recomputes the canonical hash, and reports any mismatch. This utility is invoked via GET /forensics/verify-hashes (see Section 9.1) and via CLI: java -jar sentinel-tools.jar verify-hashes --from 2025-01-01 --to 2025-12-31.
+10.4 Append-Only Enforcement DDL [NEW IN v2.0]
+  NEW IN v2.0 — Specifies the exact database mechanism enforcing immutability.
+The following DDL SHALL be implemented as a Flyway migration (V1__create_events.sql and V2__append_only_trigger.sql):
+-- events table trigger (Flyway: V2__append_only_trigger.sql)
+CREATE OR REPLACE FUNCTION prevent_event_modification()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Events table is append-only. UPDATE and DELETE are forbidden.'),
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER events_append_only
+BEFORE UPDATE OR DELETE ON events
+FOR EACH ROW EXECUTE FUNCTION prevent_event_modification();
+
+-- Dedicated write-only role
+CREATE ROLE event_writer WITH LOGIN PASSWORD '${EVENT_WRITER_PASSWORD}';
+GRANT INSERT ON events TO event_writer;
+REVOKE UPDATE, DELETE ON events FROM event_writer;
+
+-- Same pattern applied to policy_rules_history
+CREATE TRIGGER policy_history_append_only
+BEFORE UPDATE OR DELETE ON policy_rules_history
+FOR EACH ROW EXECUTE FUNCTION prevent_event_modification();
+The gateway application MUST connect to PostgreSQL using the event_writer role for all event and policy_rules_history writes. A separate read-only role (sentinel_reader) is used by the dashboard and forensics API.
+Acceptance test: an integration test SHALL attempt a direct UPDATE on the events table using the event_writer role and verify that an exception is raised (AC-05).
+10.5 Zero-Trust Enforcement
+No request is implicitly trusted, even with a valid JWT. Every request is independently scored and policy-evaluated.
+Policy default is DENY: if no rule matches, access is denied and POLICY_NO_MATCH event is emitted.
+Contextual trust: time-of-day, source IP, and risk score are evaluated on every request, not just at session initiation.
+10.6 Data Protection
+Request bodies MUST NOT be stored in plaintext. Only SHA-256 hash stored.
+Configurable field-level PII redaction: fields listed in application config are replaced with [REDACTED] before event persistence.
+JWT signing keys and database credentials SHALL be injected via environment variables or mounted secret files; no secrets in source code.
+Event store access is restricted to internal Docker network; no direct PostgreSQL port exposed to host.
+11. UI/UX Requirements
+11.1 Forensic Dashboard Views
+11.2 UX Principles
+Clarity over aesthetics: investigation UI prioritises information density and filter speed.
+Zero blank-state confusion: every view shows a message and suggested action when no data matches filters.
+Role-aware rendering: FORENSICS_ADMIN features (replay, simulation, export) are hidden from non-admin users.
+All timestamps displayed in ISO 8601 UTC with millisecond precision; hover shows nanosecond value.
+12. Implementation Plan & Milestones
+12.1 Phase Overview
+12.2 Detailed Milestone Schedule
+12.3 Optional Phase 4 Stretch Goal — Kafka Integration
+If the team is ahead of schedule after Week 14, the following optional enhancement may be undertaken:
+Replace synchronous PostgreSQL event writes with async Kafka producer in gateway filter.
+Add Kafka consumer that writes events to PostgreSQL (decoupled pipeline). Guarantee: the consumer must acknowledge write to PostgreSQL before committing the Kafka offset. This prevents data loss during migration and provides a clear rollback path (disable producer, revert to synchronous writes).
+Kafka is NOT required for the core demo or viva evaluation.
+13. Team Structure & Responsibilities
+13.1 Cross-Team Interfaces
+14. Risks & Mitigations
+15. Acceptance Criteria
+15.1 P0 — Must Pass
+15.2 P1 — Should Pass
+16. Glossary
+17. Appendix
+A. Technology Stack — Locked Versions [UPDATED IN v2.0]
+  UPDATED IN v2.0 — All versions are now exact and dependency-conflict-free.
+A.1 Maven BOM Configuration [NEW IN v2.0]
+Add the following to pom.xml to lock all Spring Cloud versions and prevent transitive conflicts:
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-dependencies</artifactId>
+      <version>2023.0.1</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependencies>
+  <!-- Spring Cloud Gateway -->
+  <dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-gateway</artifactId>
+  </dependency>
+  <!-- JJWT (RS256 support) -->
+  <dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-api</artifactId>
+    <version>0.12.5</version>
+  </dependency>
+  <dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-impl</artifactId>
+    <version>0.12.5</version>
+    <scope>runtime</scope>
+  </dependency>
+  <dependency>
+    <groupId>io.jsonwebtoken</groupId>
+    <artifactId>jjwt-jackson</artifactId>
+    <version>0.12.5</version>
+    <scope>runtime</scope>
+  </dependency>
+  <!-- Flyway -->
+  <dependency>
+    <groupId>org.flywaydb</groupId>
+    <artifactId>flyway-core</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>org.flywaydb</groupId>
+    <artifactId>flyway-database-postgresql</artifactId>
+  </dependency>
+</dependencies>
+B. Demo Fixtures Plan [NEW IN v2.0]
+  NEW IN v2.0 — Defines reproducible fixture sessions for consistent demo and viva.
+Three pre-built sessions SHALL be scripted and available in the fixtures/ directory. These sessions provide consistent, reproducible demo data for the viva examination.
+Fixture scripts:
+fixtures/load_demo_sessions.sh — loads all 3 sessions into the running PostgreSQL instance via psql.
+fixtures/reset_demo.sh — clears event store and reloads fresh fixture data. Safe to run between demo attempts.
+fixtures/sql/F01_normal_session.sql, F02_policy_violation.sql, F03_attack_sequence.sql — raw SQL insert scripts.
+Session IDs are hardcoded in the fixture scripts (UUIDs) so that demo URLs (e.g., /forensics/sessions/{id}/timeline) work consistently without searching.
+C. Tamper Verification Runbook [NEW IN v2.0]
+  NEW IN v2.0 — Step-by-step guide for demonstrating tamper evidence at viva.
+Steps to demonstrate tamper detection during viva:
+Step 1: Load demo fixtures. Run: bash fixtures/load_demo_sessions.sh
+Step 2: Verify all events are clean. Call GET /forensics/verify-hashes?from_ns=0&to_ns=9999999999999999999. Expected response: { "tampered_count": 0, "checked": N }
+Step 3: Manually tamper one event. Run SQL directly: UPDATE events SET decision = 'ALLOW' WHERE event_id = '<known_event_id_from_F03>';
+Step 4: Re-run tamper verification. Call GET /forensics/verify-hashes again. Expected response: { "tampered_count": 1, "tampered_events": ["<event_id>"] }
+Step 5: Interpret. The system detected that decision='ALLOW' does not match the stored event_hash (which was computed when decision='DENY'). This proves the audit trail is cryptographically verifiable.
+CLI alternative: java -jar sentinel-tools.jar verify-hashes --from 2025-01-01 --to 2025-12-31 --db-url jdbc:postgresql://localhost:5432/sentinel
+D. Example ABAC Policy Rule (JSON)
+{
+  "rule_id": "FIN-DELETE-BUSINESS-HOURS-01",
+  "version": 1,
+  "name": "Finance Admin — Payment Delete — Business Hours Only",
+  "priority": 10,
+  "active": true,
+  "conditions": [
+    { "type": "role", "operator": "contains", "value": "finance-admin" },
+    { "type": "endpoint", "operator": "equals", "value": "/api/payments/delete" },
+    { "type": "method", "operator": "equals", "value": "DELETE" },
+    { "type": "time", "operator": "between", "value": { "from": 9, "to": 17 } },
+    { "type": "ip", "operator": "in_cidr", "value": "10.0.0.0/8" },
+    { "type": "risk", "operator": "less_than", "value": 0.5 }
+  ],
+  "decision": "ALLOW"
+}
+E. Example Event Record (JSON)
+{
+  "event_id": "a3f1c2d4-e5b6-7890-abcd-ef1234567890",
+  "timestamp_ns": 1707825840123456789,
+  "event_type": "POLICY_DENIED",
+  "session_id": "b1e2f3a4-c5d6-7890-1234-abcdef567890",
+  "user_id": "user-9921",
+  "roles": ["finance-admin"],
+  "endpoint": "/api/payments/delete",
+  "http_method": "DELETE",
+  "source_ip": "203.0.113.45",
+  "policy_rule_id": "FIN-DELETE-BUSINESS-HOURS-01",
+  "policy_rule_version": 1,
+  "policy_rule_snapshot_id": "c4e5f6a7-b8c9-0123-def4-567890abcdef",
+  "risk_score": 0.62,
+  "risk_signals": { "ip_rep": 0.3, "request_rate": 0.8, "jwt_anomaly": 0.5, "endpoint_freq": 0.7 },
+  "decision": "DENY",
+  "body_hash": "e3b0c44298fc1c149afbf4c8996fb924...",
+  "event_hash": "a665a45920422f9d417e4867efdc4fb8...",
+  "gateway_version": "2.0.0"
+}
+F. Demo Script — Viva End-to-End Flow
+The following sequence constitutes the full demo for viva examination:
+Start the full stack: docker-compose up. All services healthy in < 5 minutes.
+Load demo fixtures: bash fixtures/load_demo_sessions.sh. Confirm 3 sessions loaded.
+Send a valid request to /api/users/profile with correct JWT → HTTP 200. Show REQUEST_RECEIVED + POLICY_ALLOWED events in the event store.
+Send same request with an expired JWT → HTTP 401. Show AUTH_FAILED event with failure reason.
+Send DELETE to /api/payments/delete outside business hours → HTTP 403. Show POLICY_DENIED event with exact rule_id FIN-DELETE-BUSINESS-HOURS-01 and policy_rule_snapshot_id.
+Show pre-loaded attack session F-03 in Forensic Dashboard → Filter by session_id → Full 10-event attack timeline in order.
+Click Policy Decision Trace on the POLICY_DENIED event → Show rule conditions, frozen snapshot used, which condition caused denial.
+Launch What-If Simulation: take the attack session (F-03), modify the time-range rule to block all hours → Run simulation → Show first_divergence_step moves earlier.
+Show Alert List → High-risk attack session F-03 at top. Show Prometheus metrics panel — all 5 metrics visible.
+Demonstrate tamper detection (Appendix C runbook): tamper one event → run /forensics/verify-hashes → mismatch detected.
+Run load test (200 RPS, 60 seconds) → Show p99 latency ≤ 15ms from benchmark output.
+
+END OF DOCUMENT
+Sentinel PRD v2.0 | Team Sentinel | Academic Year 2024–25

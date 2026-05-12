@@ -23,6 +23,8 @@ import java.util.function.Predicate;
  */
 public record PolicyRuleEvaluator(
         String ruleId,
+        Integer ruleVersion,
+        java.util.UUID snapshotId,
         Decision effect,
         int priority,
         Predicate<RequestContext> predicate) {

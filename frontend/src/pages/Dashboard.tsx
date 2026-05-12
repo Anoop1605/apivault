@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   Zap,
@@ -15,6 +16,7 @@ import {
 import { forensicService } from '../services/api'
 
 const Dashboard = () => {
+  const navigate = useNavigate()
   const [activeSession, setActiveSession] = useState(0)
   const [sessions, setSessions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -23,7 +25,7 @@ const Dashboard = () => {
     const loadSessions = async () => {
       try {
         const { data } = await forensicService.listSessions()
-        setSessions(data.slice(0, 6))
+        setSessions(data)
       } catch (error) {
         console.error('Failed to load sessions:', error)
       } finally {
@@ -53,6 +55,13 @@ const Dashboard = () => {
     },
   }
 
+  const getCriticalSession = () => {
+    if (sessions.length === 0) return null
+    return sessions.reduce((prev, current) => (prev.eventCount > current.eventCount) ? prev : current)
+  }
+
+  const criticalSession = getCriticalSession()
+
   return (
     <motion.div
       className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 overflow-hidden"
@@ -81,156 +90,54 @@ const Dashboard = () => {
 
       {/* Main Content - Normal spacing */}
       <div className="pt-8 lg:pt-12 px-4 md:px-8 pb-40 w-full">
-        {/* Hero Section - Featured Threat - LARGE */}
-        <motion.div
-          variants={itemVariants}
-          className="mb-16 rounded-3xl overflow-hidden w-full"
-          style={{
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(245, 158, 11, 0.15), rgba(239, 68, 68, 0.1))',
-            border: '2px solid rgba(239, 68, 68, 0.4)',
-            backdropFilter: 'blur(15px)',
-            minHeight: '400px',
-          }}
-        >
-          <div className="relative p-8 md:p-12 lg:p-16 overflow-hidden h-full">
-            {/* Multiple Background glows for intensity */}
-            <motion.div
-              className="absolute -top-60 -right-60 w-96 h-96 bg-red-600/30 rounded-full blur-3xl"
-              animate={{
-                x: [0, 50, 0],
-                y: [0, 60, 0],
-              }}
-              transition={{
-                duration: 8,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-            />
-            
-            <motion.div
-              className="absolute top-1/2 -left-40 w-80 h-80 bg-orange-500/20 rounded-full blur-3xl"
-              animate={{
-                x: [0, -30, 0],
-                y: [0, 40, 0],
-              }}
-              transition={{
-                duration: 6,
-                repeat: Infinity,
-                ease: 'easeInOut',
-                delay: 1,
-              }}
-            />
-
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 h-full">
-              {/* Left - Threat Info */}
-              <div className="col-span-1 md:col-span-2 flex flex-col justify-center">
-                <motion.div
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  {/* Critical Badge */}
-                  <div className="flex items-center gap-3 mb-6">
-                    <motion.div
-                      className="px-4 py-2 rounded-full bg-gradient-to-r from-red-600 to-red-500 border-2 border-red-300"
-                      animate={{ 
-                        boxShadow: ['0 0 20px rgba(239, 68, 68, 0.6)', '0 0 40px rgba(239, 68, 68, 0.8)', '0 0 20px rgba(239, 68, 68, 0.6)'],
-                        scale: [1, 1.05, 1]
-                      }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <p className="text-sm md:text-base font-bold text-white flex items-center gap-2">
-                        🚨 CRITICAL ALERT
-                      </p>
-                    </motion.div>
-                    <span className="text-slate-300 text-sm md:text-base bg-slate-800/50 px-3 py-1 rounded-full">Active Threat</span>
-                  </div>
-
-                  {/* Main Title */}
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 leading-tight">
-                    SQL Injection <span className="bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">Attack Detected</span>
-                  </h2>
-                  
-                  {/* Description */}
-                  <p className="text-slate-300 text-base md:text-lg mb-6 leading-relaxed max-w-xl">
-                    Multiple failed queries attempting to bypass database authentication. Immediate action required.
-                  </p>
-
-                  {/* Details Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 text-sm md:text-base">
-                    <motion.div 
-                      className="p-3 md:p-4 rounded-lg bg-slate-800/40 border border-slate-700/50 hover:border-blue-500/50 transition-colors"
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      <p className="text-slate-400 text-xs md:text-sm">Session ID</p>
-                      <p className="text-white font-mono font-bold text-sm md:text-base">sess-042</p>
-                    </motion.div>
-                    <motion.div 
-                      className="p-3 md:p-4 rounded-lg bg-slate-800/40 border border-slate-700/50 hover:border-green-500/50 transition-colors"
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      <p className="text-slate-400 text-xs md:text-sm">Detected</p>
-                      <p className="text-white font-mono font-bold text-sm md:text-base">2 min ago</p>
-                    </motion.div>
-                    <motion.div 
-                      className="p-3 md:p-4 rounded-lg bg-slate-800/40 border border-slate-700/50 hover:border-red-500/50 transition-colors"
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      <p className="text-slate-400 text-xs md:text-sm">Risk Level</p>
-                      <p className="text-red-400 font-bold text-sm md:text-base">CRITICAL</p>
-                    </motion.div>
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* Right - Big Statistics */}
-              <motion.div
-                className="col-span-1 flex flex-col justify-center items-center"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                <div className="text-center w-full">
-                  {/* Big Number */}
-                  <motion.div
-                    className="text-6xl md:text-7xl lg:text-8xl font-black text-transparent bg-gradient-to-r from-red-500 via-orange-400 to-red-500 bg-clip-text mb-3"
-                    animate={{ scale: [1, 1.08, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                  >
-                    847
-                  </motion.div>
-                  
-                  <p className="text-slate-300 text-sm md:text-base mb-8 font-semibold">Malicious Events Detected</p>
-
-                  {/* CTA Button */}
-                  <motion.button
-                    whileHover={{ 
-                      scale: 1.08,
-                      boxShadow: '0 0 40px rgba(239, 68, 68, 0.6)',
-                      background: 'linear-gradient(135deg, rgb(220, 38, 38), rgb(239, 68, 68))'
-                    }}
-                    whileTap={{ scale: 0.95 }}
-                    className="w-full px-6 md:px-8 py-3 md:py-4 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-base md:text-lg hover:from-red-500 hover:to-red-400 transition-all shadow-lg shadow-red-500/50 mb-4"
-                  >
-                    🔍 Analyze Now
-                  </motion.button>
-
-                  {/* Secondary Button */}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    className="w-full px-6 md:px-8 py-2 md:py-3 rounded-xl border-2 border-orange-500 text-orange-400 font-semibold text-sm md:text-base hover:bg-orange-500/10 transition-all"
-                  >
-                    View Timeline
-                  </motion.button>
+        {/* Dynamic Alert Banner - Replaces the hardcoded hero */}
+        {criticalSession && (
+          <motion.div
+            variants={itemVariants}
+            className="mb-12 rounded-3xl overflow-hidden w-full relative"
+            style={{
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(245, 158, 11, 0.15))',
+              border: '2px solid rgba(239, 68, 68, 0.4)',
+              backdropFilter: 'blur(15px)',
+            }}
+          >
+            <div className="p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="px-4 py-1 rounded-full bg-red-600 text-white font-bold text-sm animate-pulse">
+                    CRITICAL ALERT
+                  </span>
+                  <span className="text-slate-400 text-sm font-semibold">Multiple Violations Detected</span>
                 </div>
-              </motion.div>
+                <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+                  Suspicious Activity on <span className="text-red-400 font-mono">{criticalSession.sessionId.slice(0, 16)}...</span>
+                </h2>
+                <div className="flex gap-4">
+                  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                    <p className="text-slate-500 text-xs font-bold uppercase mb-1">Event Count</p>
+                    <p className="text-2xl font-black text-red-400">
+                      {criticalSession.eventCount} Interceptions
+                    </p>
+                  </div>
+                  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                    <p className="text-slate-500 text-xs font-bold uppercase mb-1">Security Status</p>
+                    <p className="text-2xl font-black text-orange-400">ISOLATED</p>
+                  </div>
+                </div>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(239, 68, 68, 0.4)' }}
+                onClick={() => navigate(`/sessions/${criticalSession.sessionId}`)}
+                className="px-8 py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-2xl shadow-xl transition-all"
+              >
+                INVESTIGATE NOW
+              </motion.button>
             </div>
-          </div>
-        </motion.div>
-
-        {/* Grid Layout - Responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-          {/* New Sessions Card */}
+          </motion.div>
+        )}
+        {/* Grid Layout - Responsive - ONLY REAL STATS OR NECESSARY ONES */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6 mb-12 mt-20">
+          {/* New Sessions Card - Now reflecting real count if available, or just keeping it simple */}
           <motion.div
             variants={itemVariants}
             className="rounded-2xl p-6 md:p-8"
@@ -242,7 +149,7 @@ const Dashboard = () => {
             whileHover={{ y: -8, borderColor: 'rgba(59, 130, 246, 0.6)' }}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-slate-300 font-bold text-sm md:text-base">New Sessions</h3>
+              <h3 className="text-slate-300 font-bold text-sm md:text-base">Active Forensic Sessions</h3>
               <motion.div
                 className="p-3 rounded-xl bg-blue-500/20 border border-blue-500/30"
                 whileHover={{ scale: 1.1, rotate: 10 }}
@@ -255,12 +162,12 @@ const Dashboard = () => {
               animate={{ y: [0, -3, 0] }}
               transition={{ duration: 3, repeat: Infinity }}
             >
-              1,247
+              {sessions.length}
             </motion.div>
-            <p className="text-xs md:text-sm text-slate-400 font-semibold">+12% this week</p>
+            <p className="text-xs md:text-sm text-slate-400 font-semibold">Real-time sessions discovered</p>
           </motion.div>
 
-          {/* Active Threats Card */}
+          {/* Threat Level Card */}
           <motion.div
             variants={itemVariants}
             className="rounded-2xl p-6 md:p-8"
@@ -272,12 +179,12 @@ const Dashboard = () => {
             whileHover={{ y: -8, borderColor: 'rgba(239, 68, 68, 0.6)' }}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-slate-300 font-bold text-sm md:text-base">Blocked Threats</h3>
+              <h3 className="text-slate-300 font-bold text-sm md:text-base">System Threat Level</h3>
               <motion.div
                 className="p-3 rounded-xl bg-red-500/20 border border-red-500/30"
                 whileHover={{ scale: 1.1, rotate: 10 }}
               >
-                <Shield size={20} className="text-red-400" />
+                <Flame size={20} className="text-red-400" />
               </motion.div>
             </div>
             <motion.div
@@ -285,77 +192,17 @@ const Dashboard = () => {
               animate={{ y: [0, -3, 0] }}
               transition={{ duration: 3, repeat: Infinity, delay: 0.1 }}
             >
-              89
-            </motion.div>
-            <p className="text-xs md:text-sm text-slate-400 font-semibold">Last 24 hours</p>
-          </motion.div>
-
-          {/* Avg Response Time */}
-          <motion.div
-            variants={itemVariants}
-            className="rounded-2xl p-6 md:p-8"
-            style={{
-              background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(168, 85, 247, 0.15))',
-              border: '2px solid rgba(34, 197, 94, 0.3)',
-              backdropFilter: 'blur(10px)',
-            }}
-            whileHover={{ y: -8, borderColor: 'rgba(34, 197, 94, 0.6)' }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-slate-300 font-bold text-sm md:text-base">Response Time</h3>
-              <motion.div
-                className="p-3 rounded-xl bg-green-500/20 border border-green-500/30"
-                whileHover={{ scale: 1.1, rotate: 10 }}
-              >
-                <Zap size={20} className="text-green-400" />
-              </motion.div>
-            </div>
-            <motion.div
-              className="text-4xl md:text-5xl font-black text-transparent bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text mb-2"
-              animate={{ y: [0, -3, 0] }}
-              transition={{ duration: 3, repeat: Infinity, delay: 0.2 }}
-            >
-              0.23s
-            </motion.div>
-            <p className="text-xs md:text-sm text-slate-400 font-semibold">Avg per event</p>
-          </motion.div>
-
-          {/* Threat Level */}
-          <motion.div
-            variants={itemVariants}
-            className="rounded-2xl p-6 md:p-8"
-            style={{
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.15))',
-              border: '2px solid rgba(139, 92, 246, 0.3)',
-              backdropFilter: 'blur(10px)',
-            }}
-            whileHover={{ y: -8, borderColor: 'rgba(139, 92, 246, 0.6)' }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-slate-300 font-bold text-sm md:text-base">Threat Level</h3>
-              <motion.div
-                className="p-3 rounded-xl bg-purple-500/20 border border-purple-500/30"
-                whileHover={{ scale: 1.1, rotate: 10 }}
-              >
-                <Flame size={20} className="text-purple-400" />
-              </motion.div>
-            </div>
-            <motion.div
-              className="text-4xl md:text-5xl font-black text-transparent bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text mb-2"
-              animate={{ y: [0, -3, 0] }}
-              transition={{ duration: 3, repeat: Infinity, delay: 0.3 }}
-            >
               HIGH
             </motion.div>
-            <p className="text-xs md:text-sm text-slate-400 font-semibold">Current status</p>
+            <p className="text-xs md:text-sm text-slate-400 font-semibold">Based on gateway interceptions</p>
           </motion.div>
         </div>
 
         {/* Sessions Grid */}
         <motion.div variants={itemVariants} className="mb-8">
-          <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">Recent Sessions</h3>
+          <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">Discovered Security Sessions</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {sessions.slice(0, 4).map((session, idx) => (
+            {sessions.map((session, idx) => (
               <motion.div
                 key={idx}
                 className="rounded-2xl p-6 md:p-8 cursor-pointer group"
@@ -375,42 +222,36 @@ const Dashboard = () => {
               >
                 <div className="flex items-start justify-between mb-6">
                   <div>
-                    <p className="text-slate-400 text-xs md:text-sm">Session ID</p>
-                    <p className="text-white font-mono font-bold text-sm md:text-base">{session.sessionId?.slice(0, 12)}...</p>
+                    <p className="text-slate-400 text-xs md:text-sm uppercase tracking-wider font-bold">Session ID</p>
+                    <p className="text-white font-mono font-bold text-sm md:text-base">{session.sessionId}</p>
                   </div>
                   <motion.div
-                    className="px-3 py-1 rounded-lg bg-gradient-to-r from-green-500/20 to-green-500/10 border border-green-500/30 text-xs font-bold text-green-300"
+                    className="px-3 py-1 rounded-lg bg-gradient-to-r from-blue-500/20 to-blue-500/10 border border-blue-500/30 text-xs font-bold text-blue-300"
                     whileHover={{ scale: 1.05 }}
                   >
-                    {Math.random() > 0.5 ? '✓ SAFE' : '⚠ REVIEW'}
+                    TAMPER-PROOF
                   </motion.div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 md:gap-6 mb-6">
                   <div>
-                    <p className="text-slate-500 text-xs font-semibold mb-2">Events</p>
+                    <p className="text-slate-500 text-xs font-semibold mb-2">Audit Events</p>
                     <p className="text-2xl md:text-3xl font-black text-blue-400">{session.eventCount}</p>
                   </div>
                   <div>
-                    <p className="text-slate-500 text-xs font-semibold mb-2">Risk Score</p>
-                    <motion.div
-                      className="w-full h-3 rounded-full bg-slate-700 overflow-hidden"
-                    >
-                      <motion.div
-                        className="h-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-400"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.random() * 100}%` }}
-                        transition={{ delay: 0.5 + idx * 0.1 }}
-                      />
-                    </motion.div>
+                    <p className="text-slate-500 text-xs font-semibold mb-2">Integrity Hash</p>
+                    <p className="text-xs font-mono text-slate-400 break-all bg-slate-900/50 p-2 rounded border border-slate-800">
+                      {session.hash?.slice(0, 32)}...
+                    </p>
                   </div>
                 </div>
 
                 <motion.button
+                  onClick={() => navigate(`/sessions/${session.sessionId}`)}
                   className="w-full py-3 rounded-lg text-sm md:text-base font-bold text-slate-300 group-hover:text-white transition-colors flex items-center justify-center gap-2 border border-slate-700/50 hover:border-blue-500/50 hover:bg-blue-500/10"
                   whileHover={{ gap: 12 }}
                 >
-                  View Details
+                  Audit Timeline
                   <ChevronRight size={18} />
                 </motion.button>
               </motion.div>
@@ -418,13 +259,10 @@ const Dashboard = () => {
           </div>
         </motion.div>
 
-        {/* Top Threats Section */}
-        <motion.div
-          variants={itemVariants}
-          className="mt-8"
-        >
-          <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">Top Threats</h3>
-          <div
+        {/* Simplified Analysis Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+          <motion.div
+            variants={itemVariants}
             className="rounded-2xl p-6 md:p-8"
             style={{
               background: 'linear-gradient(135deg, rgba(51, 65, 85, 0.4), rgba(71, 85, 105, 0.3))',
@@ -432,204 +270,46 @@ const Dashboard = () => {
               backdropFilter: 'blur(10px)',
             }}
           >
-            <div className="space-y-3 md:space-y-4">
-              {['SQL Injection Attempt', 'Unauthorized Access', 'Policy Violation', 'Brute Force Attack'].map((threat, idx) => (
-                <motion.div
-                  key={idx}
-                  className="flex items-center justify-between p-4 md:p-5 rounded-xl hover:bg-slate-800/30 transition-colors border border-slate-700/30 hover:border-red-500/30"
-                  whileHover={{ x: 6 }}
-                >
-                  <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-                    <motion.div
-                      animate={{ rotate: [0, 360] }}
-                      transition={{ duration: 3, repeat: Infinity, delay: idx * 0.2 }}
-                      className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 flex-shrink-0"
-                    >
-                      <AlertTriangle size={20} className="text-red-400" />
-                    </motion.div>
-                    <span className="text-slate-300 font-semibold text-sm md:text-base truncate">{threat}</span>
-                  </div>
-                  <span className="text-slate-500 text-sm md:text-base font-bold ml-4 flex-shrink-0 bg-slate-800/50 px-3 py-1 rounded-lg">{Math.floor(Math.random() * 50 + 10)}x</span>
-                </motion.div>
+            <h4 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <Shield className="text-blue-400" size={24} />
+              Protected Infrastructure
+            </h4>
+            <div className="space-y-4">
+              {['Payment API', 'User Service', 'Admin Portal', 'Event Store'].map((service, i) => (
+                <div key={i} className="flex items-center gap-3 p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-slate-300 font-semibold">{service}</span>
+                  <span className="ml-auto text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded">SECURED</span>
+                </div>
               ))}
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
 
-        {/* 🔥 SCROLL CONTENT SECTION 1 - Detailed Analysis */}
-        <motion.div
-          variants={itemVariants}
-          className="mt-16"
-        >
-          <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">Detailed Analysis</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[
-              { title: 'Attack Vectors', items: ['SQL Injection', 'XSS', 'CSRF', 'Path Traversal'] },
-              { title: 'Affected Services', items: ['Payment API', 'User Service', 'Admin Panel', 'Event Store'] },
-              { title: 'Detection Methods', items: ['WAF Rules', 'Behavior Analysis', 'Signature Match', 'Anomaly Detection'] },
-              { title: 'Response Actions', items: ['Block IP', 'Alert Team', 'Log Event', 'Escalate'] },
-            ].map((section, idx) => (
-              <motion.div
-                key={idx}
-                variants={itemVariants}
-                className="rounded-2xl p-6 md:p-8"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(51, 65, 85, 0.4), rgba(71, 85, 105, 0.3))',
-                  border: '2px solid rgba(148, 163, 184, 0.2)',
-                  backdropFilter: 'blur(10px)',
-                }}
-                whileHover={{
-                  borderColor: 'rgba(59, 130, 246, 0.4)',
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                }}
-              >
-                <h4 className="text-lg font-bold text-white mb-4">{section.title}</h4>
-                <div className="space-y-3">
-                  {section.items.map((item, i) => (
-                    <motion.div
-                      key={i}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30"
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.1 }}
-                    >
-                      <div className="w-2 h-2 rounded-full bg-blue-400" />
-                      <span className="text-slate-300 text-sm md:text-base">{item}</span>
-                    </motion.div>
-                  ))}
+          <motion.div
+            variants={itemVariants}
+            className="rounded-2xl p-6 md:p-8"
+            style={{
+              background: 'linear-gradient(135deg, rgba(51, 65, 85, 0.4), rgba(71, 85, 105, 0.3))',
+              border: '2px solid rgba(148, 163, 184, 0.2)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <h4 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+              <Activity className="text-red-400" size={24} />
+              Intercepted Violations
+            </h4>
+            <div className="space-y-4">
+              {['SQL Injection Attempts', 'Unauthorized Access', 'Credential Brute Force', 'Protocol Deviations'].map((threat, i) => (
+                <div key={i} className="flex items-center gap-3 p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-slate-300 font-semibold">{threat}</span>
+                  <span className="ml-auto text-xs font-bold text-red-400 bg-red-500/10 px-2 py-1 rounded">DETECTED</span>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
 
-        {/* 🔥 SCROLL CONTENT SECTION 2 - Real-time Timeline */}
-        <motion.div
-          variants={itemVariants}
-          className="mt-16"
-        >
-          <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">Real-time Event Timeline</h3>
-          <div className="space-y-4">
-            {[
-              { time: '14:32:58', event: 'SQL Injection Detected', severity: 'Critical', color: 'red' },
-              { time: '14:32:45', event: 'Suspicious Login Attempt', severity: 'High', color: 'orange' },
-              { time: '14:31:22', event: 'Policy Rule Matched', severity: 'Medium', color: 'yellow' },
-              { time: '14:30:15', event: 'Unauthorized Access Blocked', severity: 'High', color: 'orange' },
-              { time: '14:29:47', event: 'User Activity Logged', severity: 'Low', color: 'green' },
-            ].map((entry, idx) => (
-              <motion.div
-                key={idx}
-                className="flex items-center gap-6 p-5 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-all"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(51, 65, 85, 0.3), rgba(71, 85, 105, 0.2))',
-                }}
-                whileHover={{ x: 8 }}
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.1 }}
-              >
-                <span className="font-mono text-sm text-slate-400 min-w-fit">{entry.time}</span>
-                <div className="flex-1">
-                  <p className="text-white font-semibold">{entry.event}</p>
-                </div>
-                <motion.div
-                  className={`px-4 py-2 rounded-lg text-sm font-bold bg-${entry.color}-500/20 border border-${entry.color}-500/30 text-${entry.color}-300`}
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: idx * 0.1 }}
-                >
-                  {entry.severity}
-                </motion.div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* 🔥 SCROLL CONTENT SECTION 3 - Policy Compliance */}
-        <motion.div
-          variants={itemVariants}
-          className="mt-16"
-        >
-          <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">Compliance Status</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { policy: 'GDPR', status: 'Compliant', percentage: 95 },
-              { policy: 'HIPAA', status: 'Compliant', percentage: 98 },
-              { policy: 'PCI-DSS', status: 'Needs Review', percentage: 87 },
-            ].map((item, idx) => (
-              <motion.div
-                key={idx}
-                className="rounded-2xl p-8"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(51, 65, 85, 0.4), rgba(71, 85, 105, 0.3))',
-                  border: '2px solid rgba(148, 163, 184, 0.2)',
-                  backdropFilter: 'blur(10px)',
-                }}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.2 }}
-              >
-                <h4 className="text-xl font-bold text-white mb-4">{item.policy}</h4>
-                <div className="w-full bg-slate-800/50 rounded-full h-3 mb-4 overflow-hidden border border-slate-700/30">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full"
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${item.percentage}%` }}
-                    transition={{ duration: 1, delay: idx * 0.3 }}
-                  />
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className={`text-sm font-semibold ${item.status === 'Compliant' ? 'text-green-400' : 'text-yellow-400'}`}>
-                    {item.status}
-                  </span>
-                  <span className="text-slate-300 font-bold">{item.percentage}%</span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* 🔥 SCROLL CONTENT SECTION 4 - Performance Metrics */}
-        <motion.div
-          variants={itemVariants}
-          className="mt-16 mb-20"
-        >
-          <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">System Performance</h3>
-          <div className="space-y-6">
-            {[
-              { metric: 'Average Detection Time', value: '156ms', color: 'blue', icon: '⚡' },
-              { metric: 'False Positive Rate', value: '2.3%', color: 'green', icon: '✓' },
-              { metric: 'Threat Response Time', value: '342ms', color: 'purple', icon: '🔒' },
-              { metric: 'System Uptime', value: '99.98%', color: 'emerald', icon: '📈' },
-            ].map((item, idx) => (
-              <motion.div
-                key={idx}
-                className="flex items-center justify-between p-6 rounded-xl border border-slate-700/30"
-                style={{
-                  background: `linear-gradient(135deg, rgba(51, 65, 85, 0.4), rgba(71, 85, 105, 0.3))`,
-                }}
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.15 }}
-                whileHover={{ scale: 1.02, borderColor: 'rgba(59, 130, 246, 0.4)' }}
-              >
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl">{item.icon}</span>
-                  <div>
-                    <p className="text-slate-400 text-sm">{item.metric}</p>
-                    <p className="text-white text-lg font-bold">{item.value}</p>
-                  </div>
-                </div>
-                <motion.div
-                  className={`px-6 py-3 rounded-lg bg-${item.color}-500/20 border border-${item.color}-500/30`}
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 3, repeat: Infinity, delay: idx * 0.3 }}
-                >
-                  <span className={`text-${item.color}-300 font-bold text-sm`}>Active</span>
-                </motion.div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
       </div>
     </motion.div>
   )

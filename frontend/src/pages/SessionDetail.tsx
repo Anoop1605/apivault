@@ -6,135 +6,7 @@ import { Timeline } from '../components/Timeline'
 import { StepDetails } from '../components/StepDetails'
 import { ActionBar } from '../components/ActionBar'
 import { TimelineStep } from '../components/StepCard'
-
-// Mock comprehensive timeline data
-const generateMockTimeline = (sessionId: string): TimelineStep[] => [
-  {
-    id: '1',
-    eventType: 'REQUEST_RECEIVED',
-    endpoint: '/api/sessions/start',
-    method: 'POST',
-    decision: 'ALLOW',
-    riskScore: 0.15,
-    timestamp: Date.now() - 30000,
-    userName: 'user_john_smith',
-    ipAddress: '192.168.1.10',
-    requestBody: '{"userId":"user_123","sessionType":"web"}',
-    headers: {
-      'Authorization': 'Bearer eyJhbGc...',
-      'Content-Type': 'application/json',
-      'User-Agent': 'Mozilla/5.0...',
-    },
-    policyRuleId: 'SESSION-START-01',
-    policyConditions: [
-      { condition: 'role == authenticated', required: true, met: true },
-      { condition: 'ip in allowed_ranges', required: true, met: true },
-      { condition: 'session_count < max_limit', required: false, met: true },
-    ],
-  },
-  {
-    id: '2',
-    eventType: 'POLICY_EVALUATED',
-    endpoint: '/api/user/profile',
-    method: 'GET',
-    decision: 'ALLOW',
-    riskScore: 0.25,
-    timestamp: Date.now() - 25000,
-    userName: 'user_john_smith',
-    ipAddress: '192.168.1.10',
-    policyRuleId: 'USER-READ-01',
-    policyConditions: [
-      { condition: 'method == GET', required: true, met: true },
-      { condition: 'endpoint matches /api/user/*', required: true, met: true },
-      { condition: 'user authenticated', required: true, met: true },
-    ],
-  },
-  {
-    id: '3',
-    eventType: 'POLICY_ALLOWED',
-    endpoint: '/api/payments/list',
-    method: 'GET',
-    decision: 'ALLOW',
-    riskScore: 0.35,
-    timestamp: Date.now() - 20000,
-    userName: 'user_john_smith',
-    ipAddress: '192.168.1.10',
-    policyRuleId: 'PAYMENTS-READ-01',
-    policyConditions: [
-      { condition: 'role contains payment_viewer', required: true, met: true },
-      { condition: 'endpoint == /api/payments/list', required: true, met: true },
-      { condition: 'request_rate < threshold', required: true, met: true },
-    ],
-  },
-  {
-    id: '4',
-    eventType: 'POLICY_ALLOWED',
-    endpoint: '/api/payments/export',
-    method: 'POST',
-    decision: 'ALLOW',
-    riskScore: 0.52,
-    timestamp: Date.now() - 15000,
-    userName: 'user_john_smith',
-    ipAddress: '192.168.1.10',
-    requestBody: '{"format":"csv","startDate":"2026-04-01","endDate":"2026-04-22"}',
-    policyRuleId: 'PAYMENTS-EXPORT-02',
-    policyConditions: [
-      { condition: 'role == finance-admin', required: true, met: true },
-      { condition: 'endpoint == /api/payments/export', required: true, met: true },
-      { condition: 'time_of_day in business_hours', required: false, met: true },
-    ],
-  },
-  {
-    id: '5',
-    eventType: 'RISK_FLAGGED',
-    endpoint: '/api/payments/delete',
-    method: 'DELETE',
-    decision: 'FLAG',
-    riskScore: 0.75,
-    timestamp: Date.now() - 8000,
-    userName: 'user_john_smith',
-    ipAddress: '192.168.1.10',
-    requestBody: '{"paymentIds":["pay_001","pay_002","pay_003","pay_004","pay_005"]}',
-    policyRuleId: 'PAYMENTS-DELETE-CRITICAL-01',
-    policyConditions: [
-      { condition: 'role == finance-admin', required: true, met: true },
-      { condition: 'endpoint == /api/payments/delete', required: true, met: true },
-      { condition: 'time_of_day in business_hours', required: false, met: false },
-      { condition: 'previous_delete_count < 5', required: true, met: false },
-      { condition: 'risk_score < 0.7', required: true, met: false },
-    ],
-    failedConditions: [
-      'Deleted 5+ payment records (high volume)',
-      'Request time outside business hours (00:34 UTC)',
-      'Risk score exceeded threshold',
-    ],
-  },
-  {
-    id: '6',
-    eventType: 'POLICY_DENIED',
-    endpoint: '/api/payments/delete',
-    method: 'DELETE',
-    decision: 'DENY',
-    riskScore: 0.88,
-    timestamp: Date.now() - 2000,
-    userName: 'user_john_smith',
-    ipAddress: '192.168.1.10',
-    requestBody: '{"paymentIds":["pay_001","pay_002","pay_003","pay_004","pay_005"]}',
-    policyRuleId: 'FIN-DELETE-01',
-    policyConditions: [
-      { condition: 'role == finance-admin', required: true, met: true },
-      { condition: 'endpoint == /api/payments/delete', required: true, met: true },
-      { condition: 'time_of_day in business_hours', required: true, met: false },
-      { condition: 'risk_score < 0.5', required: true, met: false },
-      { condition: 'multi_factor_auth verified', required: true, met: false },
-    ],
-    failedConditions: [
-      'Multi-factor authentication not verified',
-      'Risk score 0.88 exceeds maximum allowed 0.50',
-      'Operation outside business hours (policy requires 9 AM - 5 PM UTC)',
-    ],
-  },
-]
+import { apiService } from '../services/api'
 
 export const SessionDetail: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -142,25 +14,63 @@ export const SessionDetail: React.FC = () => {
   const [selectedStep, setSelectedStep] = useState<TimelineStep | null>(null)
   const [timeline, setTimeline] = useState<TimelineStep[]>([])
   const [loading, setLoading] = useState(true)
-
-  // Mock session data
-  const mockSessionData = {
-    sessionId: sessionId || 'sess_abc123def456',
-    userId: 'user_john_smith',
-    status: 'compromised',
-    riskLevel: 0.92,
-    eventCount: 6,
-    duration: 30000,
-  }
+  const [sessionInfo, setSessionInfo] = useState<any>({
+    sessionId: sessionId || '',
+    userId: 'anonymous',
+    status: 'analyzing',
+    riskLevel: 0,
+    eventCount: 0,
+    duration: 0
+  })
 
   useEffect(() => {
-    // Simulate API fetch delay
-    const timer = setTimeout(() => {
-      setTimeline(generateMockTimeline(mockSessionData.sessionId))
-      setLoading(false)
-    }, 600)
+    const fetchSessionData = async () => {
+      if (!sessionId) return
+      setLoading(true)
+      try {
+        // Fetch real events for this session
+        const { data: events } = await apiService.events.getEventsBySession(sessionId)
+        
+        // Map EventDTO to TimelineStep
+        const steps: TimelineStep[] = events.map((event, idx) => ({
+          id: event.eventId || String(idx),
+          eventType: event.eventType,
+          endpoint: event.endpoint,
+          method: event.httpMethod,
+          decision: event.decision || 'UNKNOWN',
+          riskScore: event.riskScore || 0,
+          timestamp: Math.floor(event.timestampNs / 1000000), // NS to MS
+          userName: event.userId || 'anonymous',
+          ipAddress: 'Intercepted via Gateway',
+          requestBody: event.bodyHash ? `Body Hash: ${event.bodyHash}` : 'No body captured',
+          policyRuleId: event.policyRuleId || 'N/A',
+          policyConditions: [
+            { condition: `Rule ${event.policyRuleId || 'Global'} Evaluated`, required: true, met: event.decision === 'ALLOW' }
+          ]
+        }))
 
-    return () => clearTimeout(timer)
+        setTimeline(steps)
+        
+        // Calculate session summary
+        if (events.length > 0) {
+          const maxRisk = Math.max(...events.map(e => e.riskScore || 0))
+          setSessionInfo({
+            sessionId,
+            userId: events[0].userId || 'anonymous',
+            status: maxRisk > 0.7 ? 'compromised' : 'safe',
+            riskLevel: maxRisk,
+            eventCount: events.length,
+            duration: Math.floor((events[events.length-1].timestampNs - events[0].timestampNs) / 1000000)
+          })
+        }
+      } catch (error) {
+        console.error('Failed to fetch session timeline:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSessionData()
   }, [sessionId])
 
   useEffect(() => {
@@ -171,11 +81,11 @@ export const SessionDetail: React.FC = () => {
   }, [timeline, selectedStep])
 
   const handleReplay = () => {
-    navigate(`/replay/${mockSessionData.sessionId}`)
+    navigate(`/replay/${sessionInfo.sessionId}`)
   }
 
   const handleSimulate = () => {
-    navigate(`/simulation/${mockSessionData.sessionId}`)
+    navigate(`/simulation/${sessionInfo.sessionId}`)
   }
 
   if (loading) {
@@ -201,12 +111,12 @@ export const SessionDetail: React.FC = () => {
     <div className="min-h-screen bg-slate-950 flex flex-col">
       {/* Header */}
       <SessionHeader
-        sessionId={mockSessionData.sessionId}
-        userId={mockSessionData.userId}
-        maxRisk={mockSessionData.riskLevel}
-        status={mockSessionData.status}
-        eventCount={mockSessionData.eventCount}
-        duration={mockSessionData.duration}
+        sessionId={sessionInfo.sessionId}
+        userId={sessionInfo.userId}
+        maxRisk={sessionInfo.riskLevel}
+        status={sessionInfo.status}
+        eventCount={sessionInfo.eventCount}
+        duration={sessionInfo.duration}
       />
 
       {/* Main Content - Two Column Layout */}
@@ -253,7 +163,7 @@ export const SessionDetail: React.FC = () => {
 
       {/* Action Bar */}
       <ActionBar
-        sessionId={mockSessionData.sessionId}
+        sessionId={sessionInfo.sessionId}
         onReplay={handleReplay}
         onSimulate={handleSimulate}
       />
