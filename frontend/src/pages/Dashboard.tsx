@@ -13,7 +13,7 @@ import {
   ChevronRight,
   Flame,
 } from 'lucide-react'
-import { forensicService } from '../services/api'
+import { apiService } from '../services/api'
 
 const Dashboard = () => {
   const navigate = useNavigate()
@@ -24,8 +24,26 @@ const Dashboard = () => {
   useEffect(() => {
     const loadSessions = async () => {
       try {
-        const { data } = await forensicService.listSessions()
-        setSessions(data)
+        // Fetch all session IDs directly from Event Store (8081)
+        const { data: sessionIds } = await apiService.events.getAllSessionIds()
+        // For each session, fetch its events to build a rich summary
+        const summaries = await Promise.all(
+          sessionIds.slice(0, 20).map(async (sessionId: string) => {
+            try {
+              const { data: events } = await apiService.events.getEventsBySession(sessionId)
+              const denyCount = events.filter(e => e.decision === 'DENY').length
+              const maxRisk = Math.max(0, ...events.map(e => e.riskScore || 0))
+              const userId = events.find(e => e.userId)?.userId || 'anonymous'
+              const eventCount = events.length
+              // Use the first event's policy rule as summary rule
+              const topRule = events.find(e => e.policyRuleId)?.policyRuleId || 'N/A'
+              return { sessionId, userId, denyCount, maxRisk, eventCount, topRule }
+            } catch {
+              return { sessionId, userId: 'unknown', denyCount: 0, maxRisk: 0, eventCount: 0, topRule: 'N/A' }
+            }
+          })
+        )
+        setSessions(summaries)
       } catch (error) {
         console.error('Failed to load sessions:', error)
       } finally {
@@ -57,10 +75,24 @@ const Dashboard = () => {
 
   const getCriticalSession = () => {
     if (sessions.length === 0) return null
-    return sessions.reduce((prev, current) => (prev.eventCount > current.eventCount) ? prev : current)
+    // Score = deny events (weighted x3) + total event count
+    return sessions.reduce((prev: any, current: any) => {
+      const scoreA = (prev.denyCount || 0) * 3 + (prev.eventCount || 0)
+      const scoreB = (current.denyCount || 0) * 3 + (current.eventCount || 0)
+      return scoreB > scoreA ? current : prev
+    })
+  }
+
+  const getThreatLevel = () => {
+    const totalDenies = sessions.reduce((sum: number, s: any) => sum + (s.denyCount || 0), 0)
+    if (totalDenies > 5) return { label: 'CRITICAL', color: 'from-red-400 to-red-600' }
+    if (totalDenies > 2) return { label: 'HIGH', color: 'from-orange-400 to-red-500' }
+    if (totalDenies > 0) return { label: 'MEDIUM', color: 'from-yellow-400 to-orange-500' }
+    return { label: 'LOW', color: 'from-green-400 to-cyan-400' }
   }
 
   const criticalSession = getCriticalSession()
+  const threat = getThreatLevel()
 
   return (
     <motion.div
@@ -188,13 +220,15 @@ const Dashboard = () => {
               </motion.div>
             </div>
             <motion.div
-              className="text-4xl md:text-5xl font-black text-transparent bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text mb-2"
+              className={`text-4xl md:text-5xl font-black text-transparent bg-gradient-to-r ${threat.color} bg-clip-text mb-2`}
               animate={{ y: [0, -3, 0] }}
               transition={{ duration: 3, repeat: Infinity, delay: 0.1 }}
             >
-              HIGH
+              {threat.label}
             </motion.div>
-            <p className="text-xs md:text-sm text-slate-400 font-semibold">Based on gateway interceptions</p>
+            <p className="text-xs md:text-sm text-slate-400 font-semibold">
+              {sessions.reduce((s: number, x: any) => s + (x.denyCount || 0), 0)} deny events detected
+            </p>
           </motion.div>
         </div>
 
@@ -239,10 +273,16 @@ const Dashboard = () => {
                     <p className="text-2xl md:text-3xl font-black text-blue-400">{session.eventCount}</p>
                   </div>
                   <div>
-                    <p className="text-slate-500 text-xs font-semibold mb-2">Integrity Hash</p>
-                    <p className="text-xs font-mono text-slate-400 break-all bg-slate-900/50 p-2 rounded border border-slate-800">
-                      {session.hash?.slice(0, 32)}...
-                    </p>
+                    <p className="text-slate-500 text-xs font-semibold mb-2">Deny Count</p>
+                    <p className="text-2xl md:text-3xl font-black text-red-400">{session.denyCount ?? 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-xs font-semibold mb-2">Max Risk</p>
+                    <p className="text-lg font-black text-orange-400">{((session.maxRisk ?? 0) * 100).toFixed(0)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-xs font-semibold mb-2">Top Rule</p>
+                    <p className="text-xs font-mono text-cyan-400 truncate">{session.topRule}</p>
                   </div>
                 </div>
 

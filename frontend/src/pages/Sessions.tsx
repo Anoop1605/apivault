@@ -24,12 +24,34 @@ const Sessions = () => {
   const [selectedSession, setSelectedSession] = useState<any | null>(null)
 
   useEffect(() => {
-    // Fetch real data from the Forensics Service
-    fetch('http://localhost:8083/forensics/query/sessions')
-      .then(response => response.json())
-      .then(data => {
-        setSessions(data)
-        setFilteredSessions(data)
+    // Fetch real session IDs directly from Event Store (8081)
+    fetch('http://localhost:8081/events/sessions')
+      .then(res => res.json())
+      .then(async (sessionIds: string[]) => {
+        const summaries = await Promise.all(
+          sessionIds.slice(0, 30).map(async (sessionId: string) => {
+            try {
+              const evtRes = await fetch(`http://localhost:8081/events/sessions/${sessionId}`)
+              const events = await evtRes.json()
+              const denyCount = events.filter((e: any) => e.decision === 'DENY').length
+              const maxRisk = Math.max(0, ...events.map((e: any) => e.riskScore || 0))
+              const userId = events.find((e: any) => e.userId)?.userId || 'anonymous'
+              const eventCount = events.length
+              const firstTs = events[0]?.timestampNs || 0
+              const lastTs = events[events.length - 1]?.timestampNs || 0
+              const duration = Math.floor((lastTs - firstTs) / 1_000_000) // ms
+              // Derive status from real data
+              const status = denyCount > 2 ? 'compromised' : denyCount > 0 ? 'suspicious' : 'active'
+              const riskLevel = Math.round(maxRisk * 100)
+              const timestamp = firstTs ? Math.floor(firstTs / 1_000_000) : Date.now()
+              return { sessionId, userId, denyCount, riskLevel, eventCount, duration, status, timestamp }
+            } catch {
+              return { sessionId, userId: 'unknown', denyCount: 0, riskLevel: 0, eventCount: 0, duration: 0, status: 'active', timestamp: Date.now() }
+            }
+          })
+        )
+        setSessions(summaries)
+        setFilteredSessions(summaries)
         setLoading(false)
       })
       .catch(error => {

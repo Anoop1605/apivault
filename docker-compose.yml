@@ -1,82 +1,95 @@
 version: '3.8'
 
 services:
-  # 1. The ABAC Policy Engine & Risk Scorer
-  policy-engine:
-    build: ./policy-engine-service
-    container_name: sentinel-policy-engine
-    ports:
-      - "8082:8082"
-    environment:
-      - SERVER_PORT=8082
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/sentinel_db
-      - SPRING_DATASOURCE_USERNAME=sentinel
-      - SPRING_DATASOURCE_PASSWORD=sentinel
-    depends_on:
-      - postgres
-    networks:
-      - sentinel-network
-
-  # 2. The Forensics & Replay Service
-  forensics-service:
-    build: ./forensics-replay-service
-    container_name: sentinel-forensics-service
-    ports:
-      - "8083:8083"
-    environment:
-      - SERVER_PORT=8083
-      # Overriding the localhost values to use Docker's internal DNS!
-      - POLICY_ENGINE_URL=http://policy-engine:8082
-      - EVENTSTORE_BASE_URL=http://event-store:8081
-    depends_on:
-      - policy-engine
-    networks:
-      - sentinel-network
-
-  # 3. PostgreSQL Database (For when we move away from Mock Data)
+  # ── PostgreSQL (persisted) ──────────────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
     container_name: sentinel-postgres
     environment:
-      - POSTGRES_USER=sentinel
-      - POSTGRES_PASSWORD=sentinel
-      - POSTGRES_DB=sentinel_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: apivault
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d apivault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - sentinel-network
 
+  # ── Event Store (8081) ─────────────────────────────────────────────────────
   event-store:
     build: ./event-store-service
     container_name: sentinel-event-store
     ports:
       - "8081:8081"
     environment:
-      - SERVER_PORT=8081
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/sentinel_db
-      - SPRING_DATASOURCE_USERNAME=sentinel
-      - SPRING_DATASOURCE_PASSWORD=sentinel
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/apivault
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - sentinel-network
 
+  # ── Policy Engine (8082) ───────────────────────────────────────────────────
+  policy-engine:
+    build: ./policy-engine-service
+    container_name: sentinel-policy-engine
+    ports:
+      - "8082:8082"
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/apivault
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sentinel-network
+
+  # ── Gateway (8080) ─────────────────────────────────────────────────────────
   gateway:
     build: ./gateway-service
     container_name: sentinel-gateway
     ports:
       - "8080:8080"
     environment:
-      - SERVER_PORT=8080
-      - EVENT_STORE_URL=http://event-store:8081
-      - PAYMENT_SERVICE_URL=http://payment-service:9001
-      - USER_SERVICE_URL=http://user-service:9002
-      - ADMIN_SERVICE_URL=http://admin-service:9003
+      SERVER_PORT: 8080
+      SENTINEL_EVENT_STORE_URL: http://event-store:8081
+      SENTINEL_POLICY_ENGINE_URL: http://policy-engine:8082
+      PAYMENT_SERVICE_URL: http://payment-service:9001
+      USER_SERVICE_URL: http://user-service:9002
+      ADMIN_SERVICE_URL: http://admin-service:9003
+    depends_on:
+      - event-store
+      - policy-engine
+    networks:
+      - sentinel-network
+
+  # ── Forensics Replay (8083) ────────────────────────────────────────────────
+  forensics-service:
+    build: ./forensics-replay-service
+    container_name: sentinel-forensics-service
+    ports:
+      - "8083:8083"
+    environment:
+      SERVER_PORT: 8083
+      EVENTSTORE_BASE_URL: http://event-store:8081
+      POLICY_ENGINE_URL: http://policy-engine:8082
     depends_on:
       - event-store
     networks:
       - sentinel-network
 
+  # ── Mock Backend Services ──────────────────────────────────────────────────
   payment-service:
     build: ./backend-mock-services/payment-service
     container_name: sentinel-payment-service
@@ -101,6 +114,23 @@ services:
     networks:
       - sentinel-network
 
+  # ── React Frontend (3000) ──────────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: sentinel-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
+      - event-store
+      - forensics-service
+    networks:
+      - sentinel-network
+
 networks:
   sentinel-network:
     driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

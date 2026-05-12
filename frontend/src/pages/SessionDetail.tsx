@@ -41,11 +41,22 @@ export const SessionDetail: React.FC = () => {
           riskScore: event.riskScore || 0,
           timestamp: Math.floor(event.timestampNs / 1000000), // NS to MS
           userName: event.userId || 'anonymous',
-          ipAddress: 'Intercepted via Gateway',
-          requestBody: event.bodyHash ? `Body Hash: ${event.bodyHash}` : 'No body captured',
+          ipAddress: event.sourceIp || 'Intercepted via Gateway',
+          requestBody: event.bodyHash
+            ? `SHA-256: ${event.bodyHash}`
+            : 'No body / Empty body',
           policyRuleId: event.policyRuleId || 'N/A',
           policyConditions: [
-            { condition: `Rule ${event.policyRuleId || 'Global'} Evaluated`, required: true, met: event.decision === 'ALLOW' }
+            {
+              condition: `Rule [${event.policyRuleId || 'DEFAULT'}] v${event.policyRuleVersion ?? 1}`,
+              required: true,
+              met: event.decision === 'ALLOW'
+            },
+            {
+              condition: `Decision: ${event.decision || 'UNKNOWN'}`,
+              required: false,
+              met: event.decision !== 'DENY'
+            }
           ]
         }))
 

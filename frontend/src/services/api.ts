@@ -33,23 +33,24 @@ export interface EventDTO {
   eventId: string
   sessionId: string
   timestampNs: number
-  eventType: 'LOGIN' | 'LOGOUT' | 'ACCESS' | 'ATTACK'
+  eventType: 'REQUEST_RECEIVED' | 'REQUEST_FORWARDED' | 'AUTH_FAILED' | 'GATEWAY_ERROR' | 'LOGIN' | 'LOGOUT' | 'ACCESS' | 'ATTACK'
   userId?: string
   endpoint: string
   httpMethod: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
-  decision?: 'ALLOW' | 'BLOCK' | 'REVIEW'
+  decision?: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE' | 'BLOCK' | 'REVIEW'
   policyRuleId?: string
   policyRuleVersion?: number
   policyRuleSnapshotId?: string
   riskScore: number
   bodyHash?: string
-  gatewayVersion: string
+  sourceIp?: string
+  gatewayVersion?: string
 }
 
 export interface StepDecision {
   event: EventDTO
-  originalDecision: 'ALLOW' | 'BLOCK' | 'REVIEW'
-  simulatedDecision: 'ALLOW' | 'BLOCK' | 'REVIEW'
+  originalDecision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE'
+  simulatedDecision: 'ALLOW' | 'DENY' | 'NOT_APPLICABLE'
   ruleMatched?: string
   diverged: boolean
 }
@@ -66,10 +67,13 @@ export interface ReplayReport {
 
 export interface SessionSummaryDTO {
   sessionId: string
-  startTimestampNs: number
-  endTimestampNs: number
+  userId?: string
+  maxRiskScore?: number
+  denyCount?: number
+  firstSeenNs?: number
+  lastSeenNs?: number
   eventCount: number
-  hash: string
+  hash?: string
 }
 
 export interface TimelineEventDTO {
@@ -213,6 +217,10 @@ export const eventStoreService = {
 
   getEventsBySession: (sessionId: string) =>
     eventStoreApi.get<EventDTO[]>(`/events/sessions/${sessionId}`),
+
+  // Fetches all unique session IDs directly from the Event Store
+  getAllSessionIds: () =>
+    eventStoreApi.get<string[]>('/events/sessions'),
 }
 
 // ────────────────────────────────────────────────────────────
