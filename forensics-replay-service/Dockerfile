@@ -1,5 +1,11 @@
+# Base image with Java 17 (lightweight Alpine Linux)
 FROM eclipse-temurin:17-jre-alpine
+
+# Set the working directory inside the container
 WORKDIR /app
-COPY target/forensics-replay-service-1.0.0-SNAPSHOT.jar app.jar
-EXPOSE 8083
+
+# Copy the compiled JAR file into the container
+COPY target/*.jar app.jar
+
+# Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]

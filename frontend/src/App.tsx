@@ -10,6 +10,7 @@ import { ReplayPage } from './pages/ReplayPage'
 import { SimulationPage } from './pages/SimulationPage'
 import { Alerts } from './pages/Alerts'
 import { Settings } from './pages/Settings'
+import Session from './pages/Session';
 import './App.css'
 
 // Main App Component with Routing
@@ -78,6 +79,7 @@ function AppContent() {
         <Route path="/simulation/:sessionId" element={<SimulationPage />} />
         <Route path="/alerts" element={<Alerts />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/sessions/:sessionId" element={<Session />} />
         {/* Additional routes will be added here */}
       </Routes>
     </>

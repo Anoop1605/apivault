@@ -1,4 +1,4 @@
-package com.sentinel.forensics.config;
+package com.sentinel.eventstore.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,19 +32,8 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Swagger UI + OpenAPI docs — public
-                        .requestMatchers(
-                                "/swagger-ui.html",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/v3/api-docs")
-                        .permitAll()
-                        // Actuator health — public
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        // All forensics APIs — public for demo (CORS enabled)
-                        .requestMatchers("/forensics/**").permitAll()
-                        // Other requests authenticated
-                        .anyRequest().authenticated())
+                        .requestMatchers("/events/**", "/actuator/**").permitAll()
+                        .anyRequest().permitAll())
                 .httpBasic(basic -> {
                 });
         return http.build();

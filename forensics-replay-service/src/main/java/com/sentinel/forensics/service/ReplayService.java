@@ -1,30 +1,33 @@
 package com.sentinel.forensics.service;
 
-
+import com.sentinel.forensics.engine.ReplayHashUtil;
+import com.sentinel.forensics.event.EventStoreClient;
+import com.sentinel.forensics.replay.EvaluationResult;
 import com.sentinel.forensics.replay.ReplayEngine;
 import com.sentinel.forensics.replay.WhatIfSimulationEngine;
-import com.sentinel.forensics.event.EventStoreClient;
 import com.sentinel.shared.dto.EventDTO;
+import com.sentinel.shared.dto.PolicySnapshot;
 import com.sentinel.shared.dto.ReplayReport;
-import com.sentinel.shared.dto.StepDecision;
-import com.sentinel.forensics.engine.ReplayHashUtil;
+import com.sentinel.shared.enums.Decision;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Service
+@RequiredArgsConstructor
 public class ReplayService {
     private final ReplayEngine replayEngine;
     private final WhatIfSimulationEngine whatIfSimulationEngine;
     private final EventStoreClient eventStoreClient;
 
-    public ReplayService(ReplayEngine replayEngine, WhatIfSimulationEngine whatIfSimulationEngine, EventStoreClient eventStoreClient) {
-        this.replayEngine = replayEngine;
-        this.whatIfSimulationEngine = whatIfSimulationEngine;
-        this.eventStoreClient = eventStoreClient;
-    }
     // PRD FR-RE-03: What-if simulation with alternate PolicySnapshot
-    public ReplayReport simulateWhatIf(UUID sessionId, com.sentinel.shared.dto.PolicySnapshot alternateSnapshot) {
+    public ReplayReport simulateWhatIf(UUID sessionId, PolicySnapshot alternateSnapshot) {
         List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-        com.sentinel.shared.dto.PolicySnapshot originalSnapshot = buildPolicySnapshot(events);
+        PolicySnapshot originalSnapshot = buildPolicySnapshot(events);
         ReplayReport report = whatIfSimulationEngine.simulate(
                 sessionId, events, originalSnapshot, alternateSnapshot);
         report.setHash(ReplayHashUtil.computeSessionHash(events, alternateSnapshot));
@@ -34,43 +37,69 @@ public class ReplayService {
     // PRD FR-RE-01, FR-RE-02: Fetch events + frozen snapshot, reconstruct decisions
     public ReplayReport replaySession(UUID sessionId) {
         List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-        com.sentinel.shared.dto.PolicySnapshot snapshot = buildPolicySnapshot(events);
-        List<StepDecision> steps = replayEngine.reconstruct(events, snapshot);
+        PolicySnapshot snapshot = buildPolicySnapshot(events);
+        List<EvaluationResult> evaluations = replayEngine.reconstruct(events, snapshot);
 
-        // Extract originalDecisions list from steps
-        List<String> originalDecisions = steps.stream()
-                .map(StepDecision::getOriginalDecision)
-                .collect(java.util.stream.Collectors.toList());
+        // Build ReplayReport.StepDecision objects from evaluations and events
+        List<ReplayReport.StepDecision> steps = new ArrayList<>();
+        List<Decision> originalDecisions = new ArrayList<>();
 
-        ReplayReport report = new ReplayReport();
-        report.setSessionId(sessionId);
-        report.setSteps(steps);
-        report.setOriginalDecisions(originalDecisions);
-        report.setSimulatedDecisions(originalDecisions); // same as original in straight replay
-        report.setFirstDivergenceStep(-1);               // no divergence in straight replay
-        report.setHash(ReplayHashUtil.computeSessionHash(events, snapshot));
+        for (int i = 0; i < events.size(); i++) {
+            EventDTO event = events.get(i);
+            EvaluationResult eval = evaluations.get(i);
+
+            Decision decision = Decision.valueOf(eval.getDecision());
+
+            ReplayReport.StepDecision step = ReplayReport.StepDecision.builder()
+                    .eventId(event.getEventId())
+                    .timestampNs(event.getTimestampNs())
+                    .eventType(event.getEventType() != null ? event.getEventType().toString() : "UNKNOWN")
+                    .endpoint(event.getEndpoint())
+                    .httpMethod(event.getHttpMethod())
+                    .originalDecision(decision)
+                    .simulatedDecision(decision) // Same as original in straight replay
+                    .ruleId(eval.getRuleMatched())
+                    .riskScore(event.getRiskScore())
+                    .build();
+
+            steps.add(step);
+            originalDecisions.add(decision);
+        }
+
+        ReplayReport report = ReplayReport.builder()
+                .sessionId(sessionId)
+                .steps(steps)
+                .originalDecisions(originalDecisions)
+                .simulatedDecisions(originalDecisions) // Same as original in straight replay
+                .firstDivergenceStep(-1) // No divergence in straight replay
+                .snapshotIdUsed(null)
+                .hash(ReplayHashUtil.computeSessionHash(events, snapshot))
+                .build();
+
         return report;
     }
 
     /**
      * Fetches the frozen PolicySnapshot for a session.
      *
-     * Production path: query policy_rules_history WHERE snapshot_id = event.policyRuleSnapshotId
-     * to get the exact rule set that was active when this session's events were recorded.
+     * Production path: query policy_rules_history WHERE snapshot_id =
+     * event.policyRuleSnapshotId
+     * to get the exact rule set that was active when this session's events were
+     * recorded.
      *
      * Current implementation: derives snapshot from the first event that carries a
      * policyRuleSnapshotId. Falls back to empty snapshot if none found.
      *
-     * TODO: Replace with a real PolicySnapshotClient call once policy-engine-service
-     *       exposes GET /admin/policies/snapshots/{snapshotId}.
+     * TODO: Replace with a real PolicySnapshotClient call once
+     * policy-engine-service exposes GET /admin/policies/snapshots/{snapshotId}.
      */
-    com.sentinel.shared.dto.PolicySnapshot buildPolicySnapshot(List<EventDTO> events) {
+    PolicySnapshot buildPolicySnapshot(List<EventDTO> events) {
         // Use policyRuleId values from the events as stand-in for the frozen rule list
         List<String> rules = events.stream()
                 .map(EventDTO::getPolicyRuleId)
                 .filter(r -> r != null && !r.isEmpty())
                 .distinct()
-                .collect(java.util.stream.Collectors.toList());
-        return new com.sentinel.shared.dto.PolicySnapshot(rules);
+                .collect(Collectors.toList());
+        return new PolicySnapshot(rules);
     }
 }

@@ -1,5 +1,8 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AlertTriangle, ArrowRight, AlertCircle } from 'lucide-react'
+import { forensicService } from '../services/api'
+import { useNavigate } from 'react-router-dom'
 
 interface Alert {
   id: string
@@ -10,48 +13,9 @@ interface Alert {
 }
 
 interface AlertsPreviewProps {
-  alerts?: Alert[]
-  loading?: boolean
+  sessionId?: string
   onViewAll?: () => void
 }
-
-const defaultAlerts: Alert[] = [
-  {
-    id: '1',
-    sessionId: 'sess-001',
-    message: 'Unauthorized DELETE attempt detected',
-    severity: 'HIGH',
-    timestamp: '2 min ago',
-  },
-  {
-    id: '2',
-    sessionId: 'sess-002',
-    message: 'Multiple failed login attempts',
-    severity: 'CRITICAL',
-    timestamp: '15 min ago',
-  },
-  {
-    id: '3',
-    sessionId: 'sess-003',
-    message: 'Suspicious API call pattern',
-    severity: 'HIGH',
-    timestamp: '1 hour ago',
-  },
-  {
-    id: '4',
-    sessionId: 'sess-004',
-    message: 'Policy violation: Access denied',
-    severity: 'HIGH',
-    timestamp: '2 hours ago',
-  },
-  {
-    id: '5',
-    sessionId: 'sess-005',
-    message: 'Rate limit exceeded',
-    severity: 'CRITICAL',
-    timestamp: '3 hours ago',
-  },
-]
 
 const severityConfig = {
   HIGH: {
@@ -68,11 +32,26 @@ const severityConfig = {
   },
 }
 
-const AlertsPreview = ({
-  alerts = defaultAlerts,
-  loading = false,
-  onViewAll,
-}: AlertsPreviewProps) => {
+const AlertsPreview = ({ sessionId, onViewAll }: AlertsPreviewProps) => {
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const loadAlerts = async () => {
+      try {
+        setLoading(true)
+        const { data } = await forensicService.getAlerts(sessionId || '')
+        setAlerts(data || [])
+      } catch (error) {
+        console.error('Failed to fetch alerts:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadAlerts()
+  }, [sessionId])
+
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -141,6 +120,7 @@ const AlertsPreview = ({
                 key={alert.id}
                 variants={itemVariants}
                 whileHover={{ x: 5, backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
+                onClick={() => navigate(`/sessions/${alert.sessionId}`)}
                 className={`${config.bg} ${config.border} border rounded-lg p-4 cursor-pointer transition-all group`}
               >
                 <div className="flex items-start gap-3">

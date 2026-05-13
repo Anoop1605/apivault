@@ -1,5 +1,6 @@
 package com.sentinel.forensics.config;
 
+import com.sentinel.forensics.client.PolicyEngineClient;
 import com.sentinel.forensics.replay.ReplayEngine;
 import com.sentinel.forensics.replay.WhatIfSimulationEngine;
 import com.sentinel.forensics.event.EventStoreClient;
@@ -19,7 +20,10 @@ public class ReplayServiceConfig {
     @Value("${event-store.base-url:http://localhost:8082}")
     private String eventStoreBaseUrl;
 
-    /** Set to true in application.properties to use fixture mock data (no DB needed). */
+    /**
+     * Set to true in application.properties to use fixture mock data (no DB
+     * needed).
+     */
     @Value("${event-store.use-mock:true}")
     private boolean useMock;
 
@@ -29,23 +33,25 @@ public class ReplayServiceConfig {
     }
 
     @Bean
-    public ReplayEngine replayEngine() {
-        return new ReplayEngine();
+    public ReplayEngine replayEngine(PolicyEngineClient policyEngineClient) {
+        return new ReplayEngine(policyEngineClient);
     }
 
     @Bean
-    public WhatIfSimulationEngine whatIfSimulationEngine() {
-        return new WhatIfSimulationEngine();
+    public WhatIfSimulationEngine whatIfSimulationEngine(ReplayEngine replayEngine) {
+        return new WhatIfSimulationEngine(replayEngine);
     }
 
     @Bean
     public EventStoreClient eventStoreClient(RestTemplate restTemplate) {
-        if (useMock) return new MockEventStoreClient();
+        if (useMock)
+            return new MockEventStoreClient();
         return new RestEventStoreClient(restTemplate, eventStoreBaseUrl);
     }
 
     @Bean
-    public ReplayService replayService(ReplayEngine replayEngine, WhatIfSimulationEngine whatIfSimulationEngine, EventStoreClient eventStoreClient) {
+    public ReplayService replayService(ReplayEngine replayEngine, WhatIfSimulationEngine whatIfSimulationEngine,
+            EventStoreClient eventStoreClient) {
         return new ReplayService(replayEngine, whatIfSimulationEngine, eventStoreClient);
     }
 
@@ -55,7 +61,7 @@ public class ReplayServiceConfig {
     }
 
     @Bean
-    public DashboardService dashboardService(EventStoreClient eventStoreClient) {
-        return new DashboardService(eventStoreClient);
+    public DashboardService dashboardService(ForensicQueryService forensicQueryService) {
+        return new DashboardService(forensicQueryService);
     }
 }

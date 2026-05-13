@@ -1,99 +1,60 @@
 package com.sentinel.eventstore.writer;
 
-import com.sentinel.eventstore.policy.PolicyRuleHistory;
 import com.sentinel.eventstore.model.SecurityEvent;
 import com.sentinel.eventstore.repository.EventRepository;
-import com.sentinel.eventstore.repository.PolicyRuleHistoryRepository;
-import com.sentinel.eventstore.util.HashUtil;
 import com.sentinel.shared.dto.EventDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-
-@Service
+/**
+ * EventWriter — writes security events to the append-only event store.
+ * Converts EventDTO (from gateway) to SecurityEvent entity and persists to DB.
+ * PRD Section 5.5: Event Store — append-only with no UPDATE/DELETE allowed.
+ */
 @Slf4j
+@Service
 public class EventWriter {
 
     private final EventRepository eventRepository;
-    private final PolicyRuleHistoryRepository historyRepository;
 
-    public EventWriter(EventRepository eventRepository,
-                       PolicyRuleHistoryRepository historyRepository) {
+    public EventWriter(EventRepository eventRepository) {
         this.eventRepository = eventRepository;
-        this.historyRepository = historyRepository;
     }
 
-    public SecurityEvent writeEvent(EventDTO dto) {
+    /**
+     * Persist a single event to the event store.
+     * Converts EventDTO to SecurityEvent JPA entity and saves.
+     *
+     * @param eventDto The event DTO from the gateway
+     * @return The persisted SecurityEvent
+     * @throws RuntimeException if write fails
+     */
+    public SecurityEvent writeEvent(EventDTO eventDto) {
         try {
-
-            // 🔗 GET LAST EVENT FOR HASH CHAIN
-            SecurityEvent lastEvent = eventRepository.findTopByOrderByTimestampNsDesc();
-
-            String previousHash = (lastEvent != null)
-                    ? lastEvent.getEventHash()
-                    : "GENESIS";
-
-            // 🔐 BODY HASH
-            String bodyHash = (dto.getBodyHash() != null)
-                    ? dto.getBodyHash()
-                    : HashUtil.sha256(String.valueOf(dto.getSessionId()));
-
-            // 🧾 CREATE POLICY SNAPSHOT (SOURCE OF TRUTH)
-            PolicyRuleHistory snapshot = PolicyRuleHistory.builder()
-                    .ruleId(dto.getPolicyRuleId())
-                    .version(dto.getPolicyRuleVersion())
-                    .fullConditions(
-                            dto.getPolicyRuleSnapshot() != null
-                                    ? dto.getPolicyRuleSnapshot()
-                                    : "{}"
-                    )
-                    .decision(dto.getDecision())
-                    .activatedAt(Instant.now())
-                    .activatedBy("system")
-                    .build();
-
-            // 💾 SAVE SNAPSHOT
-            PolicyRuleHistory savedSnapshot = historyRepository.save(snapshot);
-
-            // 📦 CREATE EVENT
-            SecurityEvent event = SecurityEvent.builder()
-                    .sessionId(dto.getSessionId())
-                    .timestampNs(dto.getTimestampNs())
-                    .eventType(dto.getEventType())
-                    .userId(dto.getUserId())
-                    .roles(dto.getRoles())
-                    .endpoint(dto.getEndpoint())
-                    .httpMethod(dto.getHttpMethod())
-                    .sourceIp(dto.getSourceIp())
-                    .userAgent(dto.getUserAgent())
-                    .decision(dto.getDecision())
-                    .policyRuleId(dto.getPolicyRuleId())
-                    .policyRuleVersion(dto.getPolicyRuleVersion())
-
-                    // ✅ IMPORTANT FIX (NO NULL NOW)
-                    .policyRuleSnapshot(savedSnapshot.getFullConditions())
-                    .policyRuleSnapshotId(savedSnapshot.getSnapshotId())
-
-                    .riskScore(dto.getRiskScore())
-                    .riskSignals(dto.getRiskSignals())
-                    .requestContext(dto.getRequestContext())
-                    .bodyHash(bodyHash)
-                    .previousHash(previousHash)
-                    .gatewayVersion(dto.getGatewayVersion())
-                    .ruleMatched(dto.getPolicyRuleId())
-                    .build();
-
-            // 🔐 GENERATE EVENT HASH (CHAINING)
-            String eventHash = HashUtil.generateHash(event);
-            event.setEventHash(eventHash);
-
-            // 💾 SAVE EVENT
-            return eventRepository.save(event);
-
+            SecurityEvent event = mapDtoToEntity(eventDto);
+            SecurityEvent saved = eventRepository.save(event);
+            log.info("Event persisted: eventId={}, type={}, sessionId={}",
+                    saved.getId(), saved.getEventType(), saved.getSessionId());
+            return saved;
         } catch (Exception e) {
-            log.error("Error writing event", e);
-            throw new RuntimeException(e);
+            log.error("Failed to write event: {}", e.getMessage(), e);
+            throw new RuntimeException("Event write failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Map EventDTO (from gateway) to SecurityEvent (JPA entity).
+     * Maps the core fields represented by SecurityEvent.
+     */
+    private SecurityEvent mapDtoToEntity(EventDTO dto) {
+        SecurityEvent event = new SecurityEvent();
+        event.setSessionId(dto.getSessionId());
+        event.setTimestampNs(dto.getTimestampNs() != null ? dto.getTimestampNs() : System.nanoTime());
+        event.setEventType(dto.getEventType());
+        event.setEndpoint(dto.getEndpoint());
+        event.setSourceIp(dto.getSourceIp());
+        event.setDecision(dto.getDecision());
+        event.setRuleMatched(dto.getPolicyRuleId());
+        return event;
     }
 }

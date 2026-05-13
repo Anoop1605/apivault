@@ -1,5 +1,8 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Activity, LogIn, LogOut, Lock, AlertTriangle } from 'lucide-react'
+import { forensicService } from '../services/api'
+import { useNavigate } from 'react-router-dom'
 
 interface ActivityEvent {
   id: string
@@ -11,52 +14,8 @@ interface ActivityEvent {
 }
 
 interface ActivityFeedProps {
-  events?: ActivityEvent[]
-  loading?: boolean
+  sessionId?: string
 }
-
-const defaultEvents: ActivityEvent[] = [
-  {
-    id: '1',
-    type: 'LOGIN',
-    decision: 'ALLOW',
-    message: 'User login successful',
-    timestamp: '5 min ago',
-    sessionId: 'sess-001',
-  },
-  {
-    id: '2',
-    type: 'ACCESS',
-    decision: 'BLOCK',
-    message: 'DELETE /api/payments blocked',
-    timestamp: '8 min ago',
-    sessionId: 'sess-002',
-  },
-  {
-    id: '3',
-    type: 'ACCESS',
-    decision: 'ALLOW',
-    message: 'GET /api/users allowed',
-    timestamp: '12 min ago',
-    sessionId: 'sess-001',
-  },
-  {
-    id: '4',
-    type: 'ATTACK',
-    decision: 'BLOCK',
-    message: 'SQL injection attempt blocked',
-    timestamp: '15 min ago',
-    sessionId: 'sess-003',
-  },
-  {
-    id: '5',
-    type: 'ACCESS',
-    decision: 'REVIEW',
-    message: 'Suspicious pattern detected',
-    timestamp: '18 min ago',
-    sessionId: 'sess-004',
-  },
-]
 
 const eventConfig = {
   LOGIN: { icon: LogIn, color: 'text-green-400', bg: 'bg-green-500/10' },
@@ -80,7 +39,26 @@ const decisionConfig = {
   },
 }
 
-const ActivityFeed = ({ events = defaultEvents, loading = false }: ActivityFeedProps) => {
+const ActivityFeed = ({ sessionId }: ActivityFeedProps) => {
+  const [events, setEvents] = useState<ActivityEvent[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const loadActivity = async () => {
+      try {
+        setLoading(true)
+        const { data } = await forensicService.getTimeline(sessionId || '')
+        setEvents(data || [])
+      } catch (error) {
+        console.error('Failed to fetch activity feed:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadActivity()
+  }, [sessionId])
+
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -135,6 +113,7 @@ const ActivityFeed = ({ events = defaultEvents, loading = false }: ActivityFeedP
                 key={event.id}
                 variants={itemVariants}
                 className="flex gap-4 group cursor-pointer"
+                onClick={() => navigate(`/sessions/${event.sessionId}`)}
               >
                 {/* Timeline Line */}
                 <div className="flex flex-col items-center">
