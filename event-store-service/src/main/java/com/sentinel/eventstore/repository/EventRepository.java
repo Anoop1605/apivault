@@ -23,5 +23,13 @@ public interface EventRepository extends JpaRepository<SecurityEvent, UUID> {
 
     List<SecurityEvent> findAllByOrderByTimestampNsAsc(); // ✅ used for chain verification
 
-   SecurityEvent findTopByOrderByTimestampNsDesc();
+    SecurityEvent findTopByOrderByTimestampNsDesc();
+
+    long countByDecision(Decision decision);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT e.sessionId) FROM SecurityEvent e")
+    long countDistinctSessionIds();
+
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT e.sessionId FROM SecurityEvent e")
+    List<UUID> findDistinctSessionIds();
 }

@@ -71,21 +71,26 @@ public class ForensicQueryService {
      *
      * TODO: Replace with real session registry when persistence is available.
      */
+    /**
+     * Lists session summaries dynamically by querying the Event Store for all unique sessions.
+     * Replaces the previous hardcoded list to ensure all live traffic is visible.
+     */
     public List<SessionSummaryDTO> listReplaySessions() {
-        // 3 known demo fixture sessions (F01, F02, F03)
-        List<UUID> knownSessions = List.of(
-                UUID.fromString("aaaaaaaa-0000-0000-0000-000000000001"),
-                UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002"),
-                UUID.fromString("cccccccc-0000-0000-0000-000000000003"));
+        List<UUID> sessions = eventStoreClient.getAllSessions();
+        if (sessions == null || sessions.isEmpty()) {
+            return Collections.emptyList();
+        }
 
         List<SessionSummaryDTO> summaries = new java.util.ArrayList<>();
-        for (UUID sessionId : knownSessions) {
+        for (UUID sessionId : sessions) {
             List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
             if (events == null || events.isEmpty())
                 continue;
 
             long start = events.stream().mapToLong(EventDTO::getTimestampNs).min().orElse(0);
             long end = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
+            
+            // For the summary, we calculate a session-level hash
             PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
             String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 

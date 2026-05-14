@@ -15,9 +15,15 @@ import java.util.UUID;
 public class ForensicQueryController {
 
     private final EventQueryService eventQueryService;
+    private final com.sentinel.eventstore.service.EventMetricsService eventMetricsService;
+    private final com.sentinel.eventstore.repository.AlertRepository alertRepository;
 
-    public ForensicQueryController(EventQueryService eventQueryService) {
+    public ForensicQueryController(EventQueryService eventQueryService, 
+                                   com.sentinel.eventstore.service.EventMetricsService eventMetricsService,
+                                   com.sentinel.eventstore.repository.AlertRepository alertRepository) {
         this.eventQueryService = eventQueryService;
+        this.eventMetricsService = eventMetricsService;
+        this.alertRepository = alertRepository;
     }
 
     @GetMapping
@@ -59,6 +65,21 @@ public class ForensicQueryController {
     @GetMapping("/count")
     public long getEventCount() {
         return eventQueryService.getEventCount();
+    }
+
+    @GetMapping("/metrics")
+    public com.sentinel.shared.dto.SystemMetricsDTO getMetrics() {
+        return eventMetricsService.getSystemMetrics();
+    }
+
+    @GetMapping("/alerts")
+    public List<com.sentinel.eventstore.model.Alert> getAlerts() {
+        return alertRepository.findAllByOrderByTimestampNsDesc();
+    }
+
+    @GetMapping("/alerts/{sessionId}")
+    public List<com.sentinel.eventstore.model.Alert> getAlertsBySession(@PathVariable UUID sessionId) {
+        return alertRepository.findBySessionId(sessionId);
     }
 
     @GetMapping("/decision/{decision}")

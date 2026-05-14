@@ -37,15 +37,23 @@ public class RestEventStoreClient implements EventStoreClient {
             if (body == null)
                 return Collections.emptyList();
             return new ArrayList<>(List.of(body));
-        } catch (HttpClientErrorException.NotFound e) {
-            log.warn("Session {} not found in Event Store, falling back to mock data.", sessionId);
-            return mockClient.fetchEvents(sessionId);
-        } catch (ResourceAccessException e) {
-            log.warn("Event Store unavailable at {}, falling back to mock data.", eventStoreBaseUrl);
-            return mockClient.fetchEvents(sessionId);
         } catch (Exception e) {
-            log.error("Error fetching events for session {}, falling back to mock data.", sessionId, e);
-            return mockClient.fetchEvents(sessionId);
+            log.error("Error fetching events for session {}: {}", sessionId, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    public List<UUID> getAllSessions() {
+        String url = eventStoreBaseUrl + "/api/events/sessions";
+        try {
+            ResponseEntity<UUID[]> response = restTemplate.getForEntity(url, UUID[].class);
+            UUID[] body = response.getBody();
+            if (body == null) return Collections.emptyList();
+            return List.of(body);
+        } catch (Exception e) {
+            log.error("Error fetching all sessions from Event Store: {}", e.getMessage());
+            return Collections.emptyList();
         }
     }
 }

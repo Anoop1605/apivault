@@ -12,25 +12,42 @@ import {
   ChevronRight,
   Flame,
 } from 'lucide-react'
-import { forensicService } from '../services/api'
+import { forensicService, eventStoreService } from '../services/api'
 
 const Dashboard = () => {
   const [activeSession, setActiveSession] = useState(0)
   const [sessions, setSessions] = useState<any[]>([])
+  const [alerts, setAlerts] = useState<any[]>([])
+  const [metrics, setMetrics] = useState<any>({
+    totalEvents: 0,
+    blockedThreats: 0,
+    activeSessions: 0,
+    avgResponseTimeMs: 0.15,
+    systemThreatLevel: 'LOW'
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const loadSessions = async () => {
+    const fetchData = async () => {
       try {
-        const { data } = await forensicService.listSessions()
-        setSessions(data.slice(0, 6))
+        const [sessionsRes, metricsRes, alertsRes] = await Promise.all([
+          forensicService.listSessions(),
+          eventStoreService.getSystemMetrics(),
+          eventStoreService.getAlerts()
+        ])
+        setSessions(sessionsRes.data.slice(0, 6))
+        setMetrics(metricsRes.data)
+        setAlerts(alertsRes.data.slice(0, 5))
       } catch (error) {
-        console.error('Failed to load sessions:', error)
+        console.error('Failed to load dashboard data:', error)
       } finally {
         setLoading(false)
       }
     }
-    loadSessions()
+    
+    fetchData()
+    const interval = setInterval(fetchData, 10000) // Poll every 10s
+    return () => clearInterval(interval)
   }, [])
 
   const containerVariants = {
@@ -197,7 +214,7 @@ const Dashboard = () => {
                     animate={{ scale: [1, 1.08, 1] }}
                     transition={{ duration: 2.5, repeat: Infinity }}
                   >
-                    847
+                    {metrics.totalEvents}
                   </motion.div>
                   
                   <p className="text-slate-300 text-sm md:text-base mb-8 font-semibold">Malicious Events Detected</p>
@@ -255,7 +272,7 @@ const Dashboard = () => {
               animate={{ y: [0, -3, 0] }}
               transition={{ duration: 3, repeat: Infinity }}
             >
-              1,247
+              {metrics.activeSessions}
             </motion.div>
             <p className="text-xs md:text-sm text-slate-400 font-semibold">+12% this week</p>
           </motion.div>
@@ -285,7 +302,7 @@ const Dashboard = () => {
               animate={{ y: [0, -3, 0] }}
               transition={{ duration: 3, repeat: Infinity, delay: 0.1 }}
             >
-              89
+              {metrics.blockedThreats}
             </motion.div>
             <p className="text-xs md:text-sm text-slate-400 font-semibold">Last 24 hours</p>
           </motion.div>
@@ -315,7 +332,7 @@ const Dashboard = () => {
               animate={{ y: [0, -3, 0] }}
               transition={{ duration: 3, repeat: Infinity, delay: 0.2 }}
             >
-              0.23s
+              {metrics.avgResponseTimeMs}s
             </motion.div>
             <p className="text-xs md:text-sm text-slate-400 font-semibold">Avg per event</p>
           </motion.div>
@@ -345,7 +362,7 @@ const Dashboard = () => {
               animate={{ y: [0, -3, 0] }}
               transition={{ duration: 3, repeat: Infinity, delay: 0.3 }}
             >
-              HIGH
+              {metrics.systemThreatLevel}
             </motion.div>
             <p className="text-xs md:text-sm text-slate-400 font-semibold">Current status</p>
           </motion.div>
@@ -433,25 +450,36 @@ const Dashboard = () => {
             }}
           >
             <div className="space-y-3 md:space-y-4">
-              {['SQL Injection Attempt', 'Unauthorized Access', 'Policy Violation', 'Brute Force Attack'].map((threat, idx) => (
-                <motion.div
-                  key={idx}
-                  className="flex items-center justify-between p-4 md:p-5 rounded-xl hover:bg-slate-800/30 transition-colors border border-slate-700/30 hover:border-red-500/30"
-                  whileHover={{ x: 6 }}
-                >
-                  <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
-                    <motion.div
-                      animate={{ rotate: [0, 360] }}
-                      transition={{ duration: 3, repeat: Infinity, delay: idx * 0.2 }}
-                      className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 flex-shrink-0"
-                    >
-                      <AlertTriangle size={20} className="text-red-400" />
-                    </motion.div>
-                    <span className="text-slate-300 font-semibold text-sm md:text-base truncate">{threat}</span>
-                  </div>
-                  <span className="text-slate-500 text-sm md:text-base font-bold ml-4 flex-shrink-0 bg-slate-800/50 px-3 py-1 rounded-lg">{Math.floor(Math.random() * 50 + 10)}x</span>
-                </motion.div>
-              ))}
+              {alerts.length > 0 ? (
+                alerts.map((alert, idx) => (
+                  <motion.div
+                    key={alert.id || idx}
+                    className="flex items-center justify-between p-4 md:p-5 rounded-xl hover:bg-slate-800/30 transition-colors border border-slate-700/30 hover:border-red-500/30"
+                    whileHover={{ x: 6 }}
+                  >
+                    <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+                      <motion.div
+                        animate={{ rotate: [0, 360] }}
+                        transition={{ duration: 3, repeat: Infinity, delay: idx * 0.2 }}
+                        className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 flex-shrink-0"
+                      >
+                        <AlertTriangle size={20} className="text-red-400" />
+                      </motion.div>
+                      <div className="flex flex-col">
+                        <span className="text-slate-300 font-semibold text-sm md:text-base truncate">{alert.reason}</span>
+                        <span className="text-slate-500 text-xs font-mono">{alert.endpoint}</span>
+                      </div>
+                    </div>
+                    <span className="text-red-400 text-sm md:text-base font-bold ml-4 flex-shrink-0 bg-red-500/10 px-3 py-1 rounded-lg">
+                      {(alert.riskScore * 100).toFixed(0)}% Risk
+                    </span>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-slate-500 italic">No critical threats detected. System secure.</p>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -510,37 +538,39 @@ const Dashboard = () => {
         >
           <h3 className="text-2xl md:text-3xl font-bold text-white mb-6">Real-time Event Timeline</h3>
           <div className="space-y-4">
-            {[
-              { time: '14:32:58', event: 'SQL Injection Detected', severity: 'Critical', color: 'red' },
-              { time: '14:32:45', event: 'Suspicious Login Attempt', severity: 'High', color: 'orange' },
-              { time: '14:31:22', event: 'Policy Rule Matched', severity: 'Medium', color: 'yellow' },
-              { time: '14:30:15', event: 'Unauthorized Access Blocked', severity: 'High', color: 'orange' },
-              { time: '14:29:47', event: 'User Activity Logged', severity: 'Low', color: 'green' },
-            ].map((entry, idx) => (
-              <motion.div
-                key={idx}
-                className="flex items-center gap-6 p-5 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-all"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(51, 65, 85, 0.3), rgba(71, 85, 105, 0.2))',
-                }}
-                whileHover={{ x: 8 }}
-                initial={{ opacity: 0, x: -30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.1 }}
-              >
-                <span className="font-mono text-sm text-slate-400 min-w-fit">{entry.time}</span>
-                <div className="flex-1">
-                  <p className="text-white font-semibold">{entry.event}</p>
-                </div>
+            {alerts.length > 0 ? (
+              alerts.map((entry, idx) => (
                 <motion.div
-                  className={`px-4 py-2 rounded-lg text-sm font-bold bg-${entry.color}-500/20 border border-${entry.color}-500/30 text-${entry.color}-300`}
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: idx * 0.1 }}
+                  key={idx}
+                  className="flex items-center gap-6 p-5 rounded-xl border border-slate-700/30 hover:border-slate-600/50 transition-all"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(51, 65, 85, 0.3), rgba(71, 85, 105, 0.2))',
+                  }}
+                  whileHover={{ x: 8 }}
+                  initial={{ opacity: 0, x: -30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.1 }}
                 >
-                  {entry.severity}
+                  <span className="font-mono text-sm text-slate-400 min-w-fit">
+                    {new Date(entry.timestampNs / 1_000_000).toLocaleTimeString()}
+                  </span>
+                  <div className="flex-1">
+                    <p className="text-white font-semibold">{entry.reason}</p>
+                  </div>
+                  <motion.div
+                    className={`px-4 py-2 rounded-lg text-sm font-bold bg-red-500/20 border border-red-500/30 text-red-300`}
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, delay: idx * 0.1 }}
+                  >
+                    CRITICAL
+                  </motion.div>
                 </motion.div>
-              </motion.div>
-            ))}
+              ))
+            ) : (
+              <div className="py-8 text-center bg-slate-900/30 rounded-xl border border-slate-800">
+                <p className="text-slate-500 italic">Listening for security events...</p>
+              </div>
+            )}
           </div>
         </motion.div>
 

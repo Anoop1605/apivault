@@ -17,9 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class EventWriter {
 
     private final EventRepository eventRepository;
+    private final com.sentinel.eventstore.repository.AlertRepository alertRepository;
 
-    public EventWriter(EventRepository eventRepository) {
+    public EventWriter(EventRepository eventRepository, 
+                       com.sentinel.eventstore.repository.AlertRepository alertRepository) {
         this.eventRepository = eventRepository;
+        this.alertRepository = alertRepository;
     }
 
     /**
@@ -40,6 +43,25 @@ public class EventWriter {
             event.setEventHash(currentHash);
 
             SecurityEvent saved = eventRepository.save(event);
+            
+            // 3. Automatically generate an alert for high-risk decisions
+            if (com.sentinel.shared.enums.Decision.BLOCK.equals(saved.getDecision()) || 
+                com.sentinel.shared.enums.Decision.DENY.equals(saved.getDecision())) {
+                
+                com.sentinel.eventstore.model.Alert alert = com.sentinel.eventstore.model.Alert.builder()
+                        .sessionId(saved.getSessionId())
+                        .userId(saved.getUserId())
+                        .endpoint(saved.getEndpoint())
+                        .reason(saved.getPolicyRuleId() != null ? saved.getPolicyRuleId() : "Manual Block")
+                        .riskScore(saved.getRiskScore() != null ? saved.getRiskScore() : 1.0)
+                        .timestampNs(saved.getTimestampNs())
+                        .status(com.sentinel.eventstore.model.Alert.AlertStatus.OPEN)
+                        .build();
+                
+                alertRepository.save(alert);
+                log.warn("🚨 ALERT GENERATED: eventId={}, reason={}", saved.getId(), alert.getReason());
+            }
+
             log.info("Event persisted: eventId={}, type={}, sessionId={}, hash={}",
                     saved.getId(), saved.getEventType(), saved.getSessionId(), saved.getEventHash().substring(0, 8));
             return saved;

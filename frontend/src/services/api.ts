@@ -213,6 +213,12 @@ export const eventStoreService = {
 
   getEventsBySession: (sessionId: string) =>
     eventStoreApi.get<EventDTO[]>(`/api/events/sessions/${sessionId}`),
+
+  getSystemMetrics: () =>
+    eventStoreApi.get<any>('/api/events/metrics'),
+
+  getAlerts: () =>
+    eventStoreApi.get<any[]>('/api/events/alerts'),
 }
 
 // ────────────────────────────────────────────────────────────

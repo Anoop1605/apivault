@@ -38,10 +38,9 @@ export const ReplayPage: React.FC = () => {
         setError(null)
       } catch (err) {
         console.error('Failed to load replay:', err)
-        setError('Failed to load replay data. Using mock data instead.')
-        // Mock data fallback
-        setSteps(generateMockSteps())
-        setSummary(generateMockSummary())
+        setError('Failed to load forensic replay data. Ensure the session exists in the Event Store.')
+        setSteps([])
+        setSummary(null)
       } finally {
         setIsLoading(false)
       }
@@ -231,61 +230,5 @@ export const ReplayPage: React.FC = () => {
   )
 }
 
-// Mock data generators
-function generateMockSteps(): ReplayStep[] {
-  return [
-    {
-      step: 1,
-      event_type: 'REQUEST_RECEIVED',
-      endpoint: '/api/login',
-      decision: 'ALLOW',
-      risk_score: 0.15,
-      timestamp: new Date().toISOString(),
-      method: 'POST',
-      user_id: 'user_123',
-      ip_address: '192.168.1.1',
-      conditions: { passed: ['ip_valid', 'user_exists'], failed: [] }
-    },
-    {
-      step: 2,
-      event_type: 'POLICY_EVALUATED',
-      endpoint: '/api/user',
-      decision: 'ALLOW',
-      risk_score: 0.25,
-      rule_id: 'USER-ACCESS-01',
-      timestamp: new Date(Date.now() + 100).toISOString(),
-      conditions: { passed: ['role_valid', 'access_granted'], failed: [] }
-    },
-    {
-      step: 3,
-      event_type: 'RISK_FLAGGED',
-      decision: 'FLAG',
-      risk_score: 0.52,
-      timestamp: new Date(Date.now() + 200).toISOString(),
-      conditions: { passed: ['flagged_policy'], failed: ['risk_threshold'] }
-    },
-    {
-      step: 4,
-      event_type: 'POLICY_DENIED',
-      endpoint: '/api/delete',
-      decision: 'DENY',
-      risk_score: 0.82,
-      rule_id: 'FIN-DELETE-01',
-      timestamp: new Date(Date.now() + 300).toISOString(),
-      method: 'DELETE',
-      conditions: {
-        passed: ['role_valid'],
-        failed: ['risk_too_high', 'delete_blocked']
-      }
-    },
-  ]
-}
 
-function generateMockSummary() {
-  return {
-    first_denial_step: 4,
-    total_steps: 4,
-    final_risk_score: 0.82,
-    session_duration: 300
-  }
-}
+export default ReplayPage
