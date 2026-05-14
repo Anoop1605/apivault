@@ -3,10 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, Play, ShieldAlert, ShieldCheck, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import gsap from 'gsap'
+import { forensicService, apiService } from '../services/api'
 
-// --- Mock Data Types & Generators ---
-
-type EventDecision = 'ALLOW' | 'FLAG' | 'DENY'
+// --- Data Types ---
+type EventDecision = 'ALLOW' | 'BLOCK' | 'REVIEW' | 'FLAG' | 'DENY' | 'POLICY_NO_MATCH'
 
 interface SessionEvent {
   id: string
@@ -35,7 +35,7 @@ export const SimulationPage: React.FC = () => {
   const [blockSql, setBlockSql] = useState(true)
   const [rateLimiting, setRateLimiting] = useState(true)
   const [inputSanitization, setInputSanitization] = useState(false)
-  const [riskThreshold, setRiskThreshold] = useState(50)
+  const [riskThreshold, setRiskThreshold] = useState(80)
   const [customRule, setCustomRule] = useState('')
   const [originalEvents, setOriginalEvents] = useState<SessionEvent[]>([])
 
@@ -56,21 +56,21 @@ export const SimulationPage: React.FC = () => {
   useEffect(() => {
     if (!sessionId) return
     
-    // Fetch the real timeline for this session from the Event Store
-    fetch(`http://localhost:8081/events/sessions/${sessionId}/timeline`)
-      .then(res => res.json())
-      .then(data => {
+    // Fetch the real events for this session
+    apiService.events.getEventsBySession(sessionId)
+      .then(res => {
+        const data = res.data
         if (!Array.isArray(data)) return
         const mappedEvents: SessionEvent[] = data.map((evt, idx) => ({
-          id: evt.eventId || evt.id || `evt_${idx}`,
+          id: evt.eventId || `evt_${idx}`,
           step: idx + 1,
           eventType: evt.eventType || 'API_REQUEST',
           endpoint: evt.endpoint || '',
-          method: evt.httpMethod || evt.method || 'GET',
-          originalDecision: evt.decision || evt.originalDecision || 'ALLOW',
-          originalRisk: evt.riskScore || evt.originalRisk || 0,
-          query: evt.query || '',
-          ip: evt.ip || ''
+          method: evt.httpMethod || 'GET',
+          originalDecision: (evt.decision as any) || 'ALLOW',
+          originalRisk: evt.riskScore || 0,
+          query: evt.requestContext?.query || '',
+          ip: evt.sourceIp || ''
         }))
         setOriginalEvents(mappedEvents)
         const maxRisk = mappedEvents.length > 0 ? Math.max(...mappedEvents.map(e => e.originalRisk)) : 0
@@ -80,58 +80,45 @@ export const SimulationPage: React.FC = () => {
   }, [sessionId])
 
   // --- Simulation Logic ---
-  const runSimulation = () => {
+  const runSimulation = async () => {
+    if (!sessionId) return
     setIsSimulating(true)
     setHasSimulated(false)
     setDisplayedEvents([])
     
-    // Simulate backend processing
-    setTimeout(() => {
-      let currentRisk = 0
-      const newEvents: SimulatedEvent[] = originalEvents.map((evt) => {
-        let simDecision = evt.originalDecision
-        let simRisk = evt.originalRisk
-        let diverged = false
-        let reason = ''
+    // Map toggles to rule IDs that our backend seeder created
+    const activeRules: string[] = []
+    if (blockSql) activeRules.push('RULE-SQL-01')
+    if (riskThreshold < 100) activeRules.push('RULE-RISK-01')
+    // In a real system, we might dynamically create a rule for the threshold
+    // For the demo, we'll assume RULE-RISK-01 matches the threshold or just use the seeder defaults
+    
+    try {
+      const response = await forensicService.runWhatIf(sessionId, { rules: activeRules })
+      const report = response.data
 
-        // Apply rules
-        if (blockSql && evt.query && (evt.query.includes('OR') || evt.query.includes('SELECT'))) {
-          simDecision = 'DENY'
-          simRisk = 0.99
-          diverged = true
-          reason = 'SQL keywords blocked'
-        }
-
-        if (simRisk * 100 > riskThreshold && simDecision !== 'DENY') {
-           simDecision = 'DENY'
-           diverged = true
-           reason = `Risk exceeded threshold (${riskThreshold}%)`
-        }
-        
-        if (customRule.toUpperCase().includes('DROP') && evt.query?.toUpperCase().includes('DROP')) {
-          simDecision = 'DENY'
-          diverged = true
-          reason = 'Custom rule match'
-        }
-
-        currentRisk = Math.max(currentRisk, simRisk)
-
+      const newEvents: SimulatedEvent[] = report.steps.map((step, idx) => {
+        const originalEvt = originalEvents[idx] || {}
         return {
-          ...evt,
-          simulatedDecision: simDecision,
-          simulatedRisk: simRisk,
-          diverged,
-          divergenceReason: reason
+          ...originalEvt,
+          step: idx + 1,
+          simulatedDecision: (step.simulatedDecision as any),
+          simulatedRisk: step.riskScore,
+          diverged: step.originalDecision !== step.simulatedDecision,
+          divergenceReason: step.originalDecision !== step.simulatedDecision ? `Policy triggered: ${step.ruleId}` : ''
         }
       })
 
       setSimulatedEvents(newEvents)
-      setSimulatedFinalRisk(Math.round(currentRisk * 100))
+      const maxRisk = newEvents.length > 0 ? Math.max(...newEvents.map(e => e.simulatedRisk)) : 0
+      setSimulatedFinalRisk(Math.round(maxRisk * 100))
       setIsSimulating(false)
       setHasSimulated(true)
       playReplay(newEvents)
-
-    }, 800)
+    } catch (err) {
+      console.error("Simulation failed:", err)
+      setIsSimulating(false)
+    }
   }
 
   // --- GSAP Replay Animation ---

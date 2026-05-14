@@ -114,7 +114,7 @@ export interface PolicySnapshot {
 export const forensicService = {
   // ── REPLAY ENDPOINTS ──
   getSessionTimeline: (sessionId: string) =>
-    forensicsApi.get<ReplayReport>(`/forensics/sessions/${sessionId}/timeline`),
+    forensicsApi.get<ReplayReport>(`/forensics/dashboard/sessions/${sessionId}/timeline`),
 
   runWhatIf: (sessionId: string, policySnapshot: PolicySnapshot) =>
     forensicsApi.post<ReplayReport>(
@@ -212,7 +212,7 @@ export const eventStoreService = {
     eventStoreApi.post<EventDTO>('/api/events', event),
 
   getEventsBySession: (sessionId: string) =>
-    eventStoreApi.get<EventDTO[]>(`/events/sessions/${sessionId}`),
+    eventStoreApi.get<EventDTO[]>(`/api/events/sessions/${sessionId}`),
 }
 
 // ────────────────────────────────────────────────────────────

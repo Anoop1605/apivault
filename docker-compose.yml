@@ -69,11 +69,13 @@ services:
     environment:
       - SERVER_PORT=8080
       - EVENT_STORE_URL=http://event-store:8081
+      - POLICY_ENGINE_URL=http://policy-engine:8082
       - PAYMENT_SERVICE_URL=http://payment-service:9001
       - USER_SERVICE_URL=http://user-service:9002
       - ADMIN_SERVICE_URL=http://admin-service:9003
     depends_on:
       - event-store
+      - policy-engine
     networks:
       - sentinel-network
 

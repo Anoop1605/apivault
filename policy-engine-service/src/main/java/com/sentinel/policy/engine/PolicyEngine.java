@@ -27,12 +27,12 @@ public class PolicyEngine {
 
     /**
      * Evaluate a request against all active policies.
-     * Returns the first matching rule's decision (ALLOW/DENY).
+     * Returns a PolicyDecision containing the decision and the matched rule ID.
      *
      * @param context The incoming request context
-     * @return The policy decision: ALLOW if no rule denies, otherwise DENY
+     * @return The policy decision object
      */
-    public String evaluate(RequestContext context) {
+    public PolicyDecision evaluate(RequestContext context) {
         long startNs = System.nanoTime();
 
         // Get active, pre-compiled evaluators from cache (O(1) lookup)
@@ -43,14 +43,23 @@ public class PolicyEngine {
                 long elapsedNs = System.nanoTime() - startNs;
                 log.debug("Policy matched: ruleId={}, effect={}, elapsedNs={}",
                         evaluator.getRuleId(), evaluator.getEffect(), elapsedNs);
-                return evaluator.getEffect().toString();
+                
+                return PolicyDecision.builder()
+                        .decision(evaluator.getEffect().toString())
+                        .ruleId(evaluator.getRuleId())
+                        .evaluationTimeNs(elapsedNs)
+                        .build();
             }
         }
 
-        // Default: DENY if no rule explicitly matches (Zero Trust)
+        // Default: POLICY_NO_MATCH if no rule explicitly matches
         long elapsedNs = System.nanoTime() - startNs;
-        log.debug("No policy matched; defaulting to DENY. elapsedNs={}", elapsedNs);
-        return "POLICY_NO_MATCH";
+        log.debug("No policy matched; defaulting to POLICY_NO_MATCH. elapsedNs={}", elapsedNs);
+        return PolicyDecision.builder()
+                .decision("POLICY_NO_MATCH")
+                .ruleId("DEFAULT")
+                .evaluationTimeNs(elapsedNs)
+                .build();
     }
 
     /**

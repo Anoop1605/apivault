@@ -34,6 +34,8 @@ sentinel:
     audience: sentinel-api
   event-store:
     url: ${EVENT_STORE_URL:http://localhost:8081}
+  policy-engine:
+    url: ${POLICY_ENGINE_URL:http://localhost:8082}
   gateway:
     version: 2.0.0
     public-paths: /actuator,/health,/metrics

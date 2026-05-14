@@ -30,7 +30,7 @@ public class RestEventStoreClient implements EventStoreClient {
 
     @Override
     public List<EventDTO> fetchEvents(UUID sessionId) {
-        String url = eventStoreBaseUrl + "/events/sessions/" + sessionId;
+        String url = eventStoreBaseUrl + "/api/events/sessions/" + sessionId;
         try {
             ResponseEntity<EventDTO[]> response = restTemplate.getForEntity(url, EventDTO[].class);
             EventDTO[] body = response.getBody();

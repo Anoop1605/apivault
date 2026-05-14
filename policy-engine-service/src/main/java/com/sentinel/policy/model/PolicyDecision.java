@@ -23,6 +23,7 @@ public class PolicyDecision {
     private String decision;
     private List<String> matchedConditions;
     private long evaluationTimeNs;
+    private double riskScore;
 
     public boolean isAllowed() {
         return "ALLOW".equalsIgnoreCase(decision);

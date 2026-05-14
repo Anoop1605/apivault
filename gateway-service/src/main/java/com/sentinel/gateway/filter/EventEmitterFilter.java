@@ -76,7 +76,7 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
         @SuppressWarnings("unchecked")
         List<String> roles = exchange.getAttribute("roles");
 
-        Map<String, Object> requestContextMap = new HashMap<>();
+        Map<String, String> requestContextMap = new HashMap<>();
         exchange.getRequest().getHeaders().forEach((key, values) -> {
             String val = String.join(",", values);
             if (redactHeaders.stream().anyMatch(h -> h.equalsIgnoreCase(key))) {
@@ -85,6 +85,10 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                 requestContextMap.put(key, val);
             }
         });
+
+        Double riskScore = exchange.getAttribute("riskScore");
+        String policyDecision = exchange.getAttribute("policyDecision");
+        String policyRuleId = exchange.getAttribute("policyRuleId");
 
         // Build REQUEST_RECEIVED event (FR-GW-04)
         EventDTO receivedEvent = EventDTO.builder()
@@ -100,6 +104,9 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                 .userAgent(exchange.getRequest().getHeaders().getFirst(HttpHeaders.USER_AGENT))
                 .gatewayVersion(gatewayVersion)
                 .requestContext(requestContextMap)
+                .riskScore(riskScore)
+                .decision(policyDecision != null ? com.sentinel.shared.enums.Decision.valueOf(policyDecision) : null)
+                .policyRuleId(policyRuleId)
                 .build();
 
         // Emit REQUEST_RECEIVED, then proceed with chain
@@ -130,6 +137,9 @@ public class EventEmitterFilter implements GlobalFilter, Ordered {
                             .userAgent(exchange.getRequest().getHeaders().getFirst(HttpHeaders.USER_AGENT))
                             .gatewayVersion(gatewayVersion)
                             .requestContext(requestContextMap)
+                            .riskScore(riskScore)
+                            .decision(policyDecision != null ? com.sentinel.shared.enums.Decision.valueOf(policyDecision) : null)
+                            .policyRuleId(policyRuleId)
                             .build();
 
                     long duration = System.currentTimeMillis() - startTime;

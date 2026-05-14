@@ -9,5 +9,6 @@ public enum Decision {
     DENY,
     FLAG,
     BLOCK, // Strong deny with blocking action
-    REVIEW // Flagged for manual review
+    REVIEW, // Flagged for manual review
+    POLICY_NO_MATCH // No matching policy found
 }
