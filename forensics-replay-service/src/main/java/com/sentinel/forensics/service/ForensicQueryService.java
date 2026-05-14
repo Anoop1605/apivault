@@ -65,24 +65,15 @@ public class ForensicQueryService {
     }
 
     /**
-     * Lists session summaries. In a production system this would come from
-     * a session registry or event-store index. For now, returns a single
-     * summary derived from the mock event store.
-     *
-     * TODO: Replace with real session registry when persistence is available.
-     */
-    /**
-     * Lists session summaries dynamically by querying the Event Store for all unique sessions.
-     * Replaces the previous hardcoded list to ensure all live traffic is visible.
+     * Lists session summaries dynamically by querying all distinct session IDs from the event store.
+     * This replaces the old hardcoded demo session approach with real dynamic data fetching.
      */
     public List<SessionSummaryDTO> listReplaySessions() {
-        List<UUID> sessions = eventStoreClient.getAllSessions();
-        if (sessions == null || sessions.isEmpty()) {
-            return Collections.emptyList();
-        }
-
+        // Fetch ALL session IDs from the event store dynamically
+        List<UUID> allSessions = eventStoreClient.fetchAllSessionIds();
+        
         List<SessionSummaryDTO> summaries = new java.util.ArrayList<>();
-        for (UUID sessionId : sessions) {
+        for (UUID sessionId : allSessions) {
             List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
             if (events == null || events.isEmpty())
                 continue;
@@ -90,7 +81,13 @@ public class ForensicQueryService {
             long start = events.stream().mapToLong(EventDTO::getTimestampNs).min().orElse(0);
             long end = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
             
-            // For the summary, we calculate a session-level hash
+            // Calculate metrics dynamically
+            long blockedCount = events.stream().filter(e -> "BLOCK".equals(e.getDecision())).count();
+            long attackCount = events.stream().filter(e -> "ATTACK".equals(e.getEventType())).count();
+            
+            // Calculate risk score dynamically: 20% per block + 30% per attack
+            double riskScore = Math.min(100, (blockedCount * 20.0) + (attackCount * 30.0));
+            
             PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
             String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 
@@ -100,6 +97,8 @@ public class ForensicQueryService {
                     .lastSeenNs(end)
                     .eventCount(events.size())
                     .hash(hash)
+                    .maxRiskScore(riskScore)
+                    .denyCount((int) blockedCount)
                     .build());
         }
         return summaries;

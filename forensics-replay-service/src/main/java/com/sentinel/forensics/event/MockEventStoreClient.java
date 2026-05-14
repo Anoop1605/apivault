@@ -33,6 +33,16 @@ public class MockEventStoreClient implements EventStoreClient {
         return genericEvents(sessionId);
     }
 
+    @Override
+    public List<UUID> fetchAllSessionIds() {
+        // Return all 3 mock demo fixture sessions
+        return new ArrayList<>(List.of(
+                SESSION_NORMAL,
+                SESSION_VIOLATION,
+                SESSION_ATTACK
+        ));
+    }
+
     // ------------------------------------------------------------------
     // F01 — Normal session (4 events, all ALLOW)
     // ------------------------------------------------------------------

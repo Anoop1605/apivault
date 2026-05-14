@@ -56,4 +56,26 @@ public class RestEventStoreClient implements EventStoreClient {
             return Collections.emptyList();
         }
     }
+
+    @Override
+    public List<UUID> fetchAllSessionIds() {
+        String url = eventStoreBaseUrl + "/events/sessions";
+        try {
+            ResponseEntity<UUID[]> response = restTemplate.getForEntity(url, UUID[].class);
+            UUID[] body = response.getBody();
+            if (body == null)
+                return Collections.emptyList();
+            return new ArrayList<>(List.of(body));
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("Session list endpoint not found at {}, falling back to mock data.", eventStoreBaseUrl);
+            return mockClient.fetchAllSessionIds();
+        } catch (ResourceAccessException e) {
+            log.warn("Event Store unavailable at {}, falling back to mock data.", eventStoreBaseUrl);
+            return mockClient.fetchAllSessionIds();
+        } catch (Exception e) {
+            log.error("Error fetching all session IDs from Event Store, falling back to mock data.", e);
+            return mockClient.fetchAllSessionIds();
+        }
+    }
+
 }

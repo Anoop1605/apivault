@@ -28,8 +28,14 @@ const Sessions = () => {
     fetch('http://localhost:8083/forensics/query/sessions')
       .then(response => response.json())
       .then(data => {
-        setSessions(data)
-        setFilteredSessions(data)
+        // Transform API response to match component expectations
+        const transformed = data.map((session: any) => ({
+          ...session,
+          riskLevel: session.maxRiskScore || 0,
+          status: session.flagged ? 'compromised' : (session.maxRiskScore > 50 ? 'suspicious' : 'active')
+        }))
+        setSessions(transformed)
+        setFilteredSessions(transformed)
         setLoading(false)
       })
       .catch(error => {

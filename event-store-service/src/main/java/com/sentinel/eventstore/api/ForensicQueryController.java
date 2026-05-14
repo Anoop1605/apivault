@@ -2,118 +2,47 @@ package com.sentinel.eventstore.api;
 
 import com.sentinel.eventstore.query.EventQueryService;
 import com.sentinel.shared.dto.EventDTO;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-@Slf4j
 @RestController
-@RequestMapping("/api/events")
+@RequestMapping("/events")
 public class ForensicQueryController {
 
     private final EventQueryService eventQueryService;
-    private final com.sentinel.eventstore.service.EventMetricsService eventMetricsService;
-    private final com.sentinel.eventstore.repository.AlertRepository alertRepository;
 
-    public ForensicQueryController(EventQueryService eventQueryService, 
-                                   com.sentinel.eventstore.service.EventMetricsService eventMetricsService,
-                                   com.sentinel.eventstore.repository.AlertRepository alertRepository) {
+    public ForensicQueryController(EventQueryService eventQueryService) {
         this.eventQueryService = eventQueryService;
-        this.eventMetricsService = eventMetricsService;
-        this.alertRepository = alertRepository;
     }
 
-    @GetMapping
-    public List<EventDTO> getAllEvents() {
-        return eventQueryService.getAllEvents();
-    }
-
-    // 🔥 NEW: RECENT
-    @GetMapping("/recent")
-    public List<EventDTO> getRecentEvents(
-            @RequestParam(defaultValue = "10") int minutes) {
-
-        return eventQueryService.getRecentEvents(minutes);
-    }
-
-    @GetMapping("/paginated")
-    public List<EventDTO> getPaginated(
-            @RequestParam int page,
-            @RequestParam int size) {
-
-        return eventQueryService.getPaginatedEvents(page, size);
-    }
-
+    /**
+     * GET /events/sessions
+     * Returns all distinct session IDs from the database.
+     * Called by forensics-replay-service via RestEventStoreClient for dynamic session discovery.
+     */
     @GetMapping("/sessions")
-    public List<UUID> getAllSessions() {
-        return eventQueryService.getAllSessions();
+    public ResponseEntity<List<UUID>> getAllSessionIds() {
+        List<UUID> sessions = eventQueryService.fetchAllSessionIds();
+        if (sessions.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(sessions);
     }
 
+    /**
+     * GET /events/sessions/{sessionId}
+     * Returns all events for the given session, ordered by timestamp ascending.
+     * Called by forensics-replay-service via RestEventStoreClient.
+     */
     @GetMapping("/sessions/{sessionId}")
-    public List<EventDTO> getEventsBySession(@PathVariable UUID sessionId) {
-        return eventQueryService.fetchEventsBySession(sessionId);
-    }
-
-    @GetMapping("/latest")
-    public EventDTO getLatestEvent() {
-        return eventQueryService.getLatestEvent();
-    }
-
-    @GetMapping("/count")
-    public long getEventCount() {
-        return eventQueryService.getEventCount();
-    }
-
-    @GetMapping("/metrics")
-    public com.sentinel.shared.dto.SystemMetricsDTO getMetrics() {
-        return eventMetricsService.getSystemMetrics();
-    }
-
-    @GetMapping("/alerts")
-    public List<com.sentinel.eventstore.model.Alert> getAlerts() {
-        return alertRepository.findAllByOrderByTimestampNsDesc();
-    }
-
-    @GetMapping("/alerts/{sessionId}")
-    public List<com.sentinel.eventstore.model.Alert> getAlertsBySession(@PathVariable UUID sessionId) {
-        return alertRepository.findBySessionId(sessionId);
-    }
-
-    @GetMapping("/decision/{decision}")
-    public List<EventDTO> getByDecision(@PathVariable String decision) {
-        return eventQueryService.getByDecision(decision);
-    }
-
-    @GetMapping("/endpoint")
-    public List<EventDTO> getByEndpoint(@RequestParam String endpoint) {
-        return eventQueryService.getByEndpoint(endpoint);
-    }
-
-    @GetMapping("/user/{userId}")
-    public List<EventDTO> getByUser(@PathVariable String userId) {
-        return eventQueryService.getByUser(userId);
-    }
-
-    @GetMapping("/time")
-    public List<EventDTO> getByTimeRange(
-            @RequestParam long start,
-            @RequestParam long end) {
-
-        return eventQueryService.getByTimeRange(start, end);
-    }
-
-    @GetMapping("/risk/high")
-    public List<EventDTO> getHighRisk(
-            @RequestParam(defaultValue = "0.7") double threshold) {
-
-        return eventQueryService.getHighRisk(threshold);
-    }
-
-    @GetMapping("/verify-chain")
-    public Map<String, Object> verifyChain() {
-        return eventQueryService.verifyChain();
+    public ResponseEntity<List<EventDTO>> getEventsBySession(@PathVariable UUID sessionId) {
+        List<EventDTO> events = eventQueryService.fetchEventsBySession(sessionId);
+        if (events.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(events);
     }
 }

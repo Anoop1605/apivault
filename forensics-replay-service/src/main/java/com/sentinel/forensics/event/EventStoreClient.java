@@ -7,5 +7,10 @@ import java.util.UUID;
 // Modular client interface for event-store-service
 public interface EventStoreClient {
     List<EventDTO> fetchEvents(UUID sessionId);
-    List<UUID> getAllSessions();
+    
+    /**
+     * Fetch all distinct session IDs from the event store.
+     * Used for dynamic session discovery instead of hardcoded lists.
+     */
+    List<UUID> fetchAllSessionIds();
 }
