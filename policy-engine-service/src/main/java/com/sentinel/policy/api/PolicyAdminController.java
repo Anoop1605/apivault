@@ -2,6 +2,7 @@ package com.sentinel.policy.api;
 
 import com.sentinel.policy.model.PolicyRule;
 import com.sentinel.policy.service.PolicyService;
+import com.sentinel.shared.dto.PolicySnapshot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -54,6 +55,15 @@ public class PolicyAdminController {
         Optional<PolicyRule> policy = policyService.getPolicyByRuleId(ruleId);
         return policy.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/snapshots/{snapshotId}")
+    public ResponseEntity<PolicySnapshot> getSnapshot(@PathVariable UUID snapshotId) {
+        try {
+            return ResponseEntity.ok(policyService.getSnapshot(snapshotId));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /**

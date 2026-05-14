@@ -3,14 +3,14 @@ package com.sentinel.policy.engine;
 import com.sentinel.policy.cache.PolicyCache;
 import com.sentinel.policy.model.PolicyRule;
 import com.sentinel.shared.context.RequestContext;
+import com.sentinel.shared.dto.PolicySnapshot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import com.sentinel.policy.model.PolicyDecision;
-import com.sentinel.shared.dto.PolicySnapshot;
-import java.util.Objects;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * PolicyEngine — Core ABAC policy evaluation engine.
@@ -47,17 +47,19 @@ public class PolicyEngine {
                 return PolicyDecision.builder()
                         .decision(evaluator.getEffect().toString())
                         .ruleId(evaluator.getRuleId())
+                        .ruleVersion(evaluator.getRuleVersion())
+                        .snapshotId(evaluator.getSnapshotId())
                         .evaluationTimeNs(elapsedNs)
                         .build();
             }
         }
 
-        // Default: POLICY_NO_MATCH if no rule explicitly matches
         long elapsedNs = System.nanoTime() - startNs;
-        log.debug("No policy matched; defaulting to POLICY_NO_MATCH. elapsedNs={}", elapsedNs);
+        log.debug("No policy matched; defaulting to DENY. elapsedNs={}", elapsedNs);
         return PolicyDecision.builder()
-                .decision("POLICY_NO_MATCH")
-                .ruleId("DEFAULT")
+                .decision("DENY")
+                .ruleId("DEFAULT_DENY")
+                .ruleVersion(0)
                 .evaluationTimeNs(elapsedNs)
                 .build();
     }
@@ -71,7 +73,7 @@ public class PolicyEngine {
         long startNs = System.nanoTime();
 
         if (snapshot == null || snapshot.getRules() == null) {
-            return PolicyDecision.builder().decision("POLICY_NO_MATCH").ruleId("DEFAULT")
+            return PolicyDecision.builder().decision("DENY").ruleId("DEFAULT_DENY").ruleVersion(0)
                     .evaluationTimeNs(System.nanoTime() - startNs).build();
         }
 
@@ -83,12 +85,19 @@ public class PolicyEngine {
 
         for (PolicyRuleEvaluator evaluator : snapshotEvaluators) {
             if (evaluator.matches(context)) {
-                return PolicyDecision.builder().decision(evaluator.getEffect().toString()).ruleId(evaluator.getRuleId())
+                return PolicyDecision.builder()
+                        .decision(evaluator.getEffect().toString())
+                        .ruleId(evaluator.getRuleId())
+                        .ruleVersion(evaluator.getRuleVersion())
+                        .snapshotId(evaluator.getSnapshotId())
+                        .snapshotRules(snapshot.getRules())
                         .evaluationTimeNs(System.nanoTime() - startNs).build();
             }
         }
 
-        return PolicyDecision.builder().decision("POLICY_NO_MATCH").ruleId("DEFAULT")
+        return PolicyDecision.builder().decision("DENY").ruleId("DEFAULT_DENY")
+                .ruleVersion(0)
+                .snapshotRules(snapshot.getRules())
                 .evaluationTimeNs(System.nanoTime() - startNs).build();
     }
 

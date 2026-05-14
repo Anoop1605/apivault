@@ -1,5 +1,8 @@
 package com.sentinel.forensics.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sentinel.forensics.client.PolicyEngineClient;
 import com.sentinel.forensics.engine.ReplayHashUtil;
 import com.sentinel.forensics.event.EventStoreClient;
 import com.sentinel.forensics.replay.EvaluationResult;
@@ -20,9 +23,11 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ReplayService {
+    private final PolicyEngineClient policyEngineClient;
     private final ReplayEngine replayEngine;
     private final WhatIfSimulationEngine whatIfSimulationEngine;
     private final EventStoreClient eventStoreClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // PRD FR-RE-03: What-if simulation with alternate PolicySnapshot
     public ReplayReport simulateWhatIf(UUID sessionId, PolicySnapshot alternateSnapshot) {
@@ -72,11 +77,19 @@ public class ReplayService {
                 .originalDecisions(originalDecisions)
                 .simulatedDecisions(originalDecisions) // Same as original in straight replay
                 .firstDivergenceStep(-1) // No divergence in straight replay
-                .snapshotIdUsed(null)
+                .snapshotIdUsed(extractSnapshotId(events))
                 .hash(ReplayHashUtil.computeSessionHash(events, snapshot))
                 .build();
 
         return report;
+    }
+
+    private UUID extractSnapshotId(List<EventDTO> events) {
+        return events.stream()
+                .map(EventDTO::getPolicyRuleSnapshotId)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
     }
 
     /**
@@ -94,7 +107,31 @@ public class ReplayService {
      * policy-engine-service exposes GET /admin/policies/snapshots/{snapshotId}.
      */
     PolicySnapshot buildPolicySnapshot(List<EventDTO> events) {
-        // Use policyRuleId values from the events as stand-in for the frozen rule list
+        for (EventDTO event : events) {
+            if (event.getPolicyRuleSnapshotId() != null) {
+                try {
+                    PolicySnapshot snapshot = policyEngineClient.fetchSnapshot(event.getPolicyRuleSnapshotId());
+                    if (snapshot != null && snapshot.getRules() != null) {
+                        return snapshot;
+                    }
+                } catch (Exception ignored) {
+                    // Fall through to the persisted event snapshot if present.
+                }
+            }
+
+            if (event.getPolicyRuleSnapshot() != null && !event.getPolicyRuleSnapshot().isBlank()) {
+                try {
+                    List<String> rules = objectMapper.readValue(
+                            event.getPolicyRuleSnapshot(),
+                            new TypeReference<List<String>>() {
+                            });
+                    return new PolicySnapshot(rules);
+                } catch (Exception ignored) {
+                    // Fall through to the last-resort rule-id list below.
+                }
+            }
+        }
+
         List<String> rules = events.stream()
                 .map(EventDTO::getPolicyRuleId)
                 .filter(r -> r != null && !r.isEmpty())

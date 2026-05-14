@@ -1,73 +1,160 @@
--- ============================================================
--- FIXTURE F03 — Attack Sequence
--- Session: cccccccc-0000-0000-0000-000000000003
--- User: unknown (no valid JWT — external attacker)
--- Pattern: rapid scanning → injection attempt → privilege escalation
--- Risk score: high (0.85) — triggers RISK_FLAGGED
--- Key forensic demo: what-if shows attack blocked at step 2
---                    with stricter rules (currently blocked at step 4)
--- ============================================================
+DELETE FROM security_events
+WHERE session_id = '33333333-3333-3333-3333-333333333333';
 
 INSERT INTO security_events (
-    id, session_id, timestamp_ns, event_type, decision,
-    rule_matched, source_ip, endpoint
+    id, session_id, timestamp_ns, event_type, decision, rule_matched, source_ip,
+    endpoint, user_id, roles_json, http_method, policy_rule_id, policy_rule_version,
+    policy_rule_snapshot_id, policy_rule_snapshot, risk_score, gateway_version
 ) VALUES
-
--- Step 1: Initial probe — allowed (looks like normal access)
 (
     gen_random_uuid(),
-    'cccccccc-0000-0000-0000-000000000003',
-    1707825800000000000,
-    'ACCESS', 'ALLOW',
-    'ALLOW_GET', '185.220.101.45', '/api/users'
+    '33333333-3333-3333-3333-333333333333',
+    1707825840000000000,
+    'REQUEST_RECEIVED',
+    NULL,
+    NULL,
+    '203.0.113.45',
+    '/api/users/profile',
+    'user-attacker',
+    '["user"]'::jsonb,
+    'GET',
+    NULL,
+    NULL,
+    NULL,
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.15,
+    '2.0.0'
 ),
-
--- Step 2: Rapid endpoint scan — allowed (rate limit not yet triggered)
 (
     gen_random_uuid(),
+    '33333333-3333-3333-3333-333333333333',
+    1707825840100000000,
+    'POLICY_ALLOWED',
+    'ALLOW',
+    'RULE-ALLOW-USER-PROFILE-01',
+    '203.0.113.45',
+    '/api/users/profile',
+    'user-attacker',
+    '["user"]'::jsonb,
+    'GET',
+    'RULE-ALLOW-USER-PROFILE-01',
+    1,
     'cccccccc-0000-0000-0000-000000000003',
-    1707825800100000000,
-    'ACCESS', 'ALLOW',
-    'ALLOW_GET', '185.220.101.45', '/api/admin'
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.15,
+    '2.0.0'
 ),
-
--- Step 3: SQL injection attempt on payments endpoint — allowed (no injection rule)
 (
     gen_random_uuid(),
-    'cccccccc-0000-0000-0000-000000000003',
-    1707825800200000000,
-    'ACCESS', 'ALLOW',
-    'ALLOW_GET', '185.220.101.45', '/api/payments?id=1 OR 1=1'
+    '33333333-3333-3333-3333-333333333333',
+    1707825840200000000,
+    'REQUEST_RECEIVED',
+    NULL,
+    NULL,
+    '203.0.113.45',
+    '/api/payments/delete',
+    'user-attacker',
+    '["user"]'::jsonb,
+    'DELETE',
+    NULL,
+    NULL,
+    NULL,
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.76,
+    '2.0.0'
 ),
-
--- Step 4: ATTACK event — risk scorer flags this, BLOCKED
 (
     gen_random_uuid(),
-    'cccccccc-0000-0000-0000-000000000003',
-    1707825800300000000,
-    'ATTACK', 'BLOCK',
-    'BLOCK_ATTACK', '185.220.101.45', '/api/admin/users/delete-all'
+    '33333333-3333-3333-3333-333333333333',
+    1707825840250000000,
+    'RISK_FLAGGED',
+    'FLAG',
+    NULL,
+    '203.0.113.45',
+    '/api/payments/delete',
+    'user-attacker',
+    '["user"]'::jsonb,
+    'DELETE',
+    NULL,
+    NULL,
+    NULL,
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.76,
+    '2.0.0'
 ),
-
--- Step 5: Privilege escalation attempt — BLOCKED
 (
     gen_random_uuid(),
+    '33333333-3333-3333-3333-333333333333',
+    1707825840300000000,
+    'POLICY_DENIED',
+    'DENY',
+    'DEFAULT_DENY',
+    '203.0.113.45',
+    '/api/payments/delete',
+    'user-attacker',
+    '["user"]'::jsonb,
+    'DELETE',
+    'DEFAULT_DENY',
+    0,
     'cccccccc-0000-0000-0000-000000000003',
-    1707825800400000000,
-    'ATTACK', 'BLOCK',
-    'BLOCK_ATTACK', '185.220.101.45', '/api/admin/roles/assign'
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.76,
+    '2.0.0'
 ),
-
--- Step 6: Final DELETE attempt — BLOCKED
 (
     gen_random_uuid(),
+    '33333333-3333-3333-3333-333333333333',
+    1707825840400000000,
+    'REQUEST_RECEIVED',
+    NULL,
+    NULL,
+    '203.0.113.45',
+    '/api/admin/dashboard',
+    'user-attacker',
+    '["user"]'::jsonb,
+    'GET',
+    NULL,
+    NULL,
+    NULL,
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.91,
+    '2.0.0'
+),
+(
+    gen_random_uuid(),
+    '33333333-3333-3333-3333-333333333333',
+    1707825840450000000,
+    'RISK_FLAGGED',
+    'FLAG',
+    NULL,
+    '203.0.113.45',
+    '/api/admin/dashboard',
+    'user-attacker',
+    '["user"]'::jsonb,
+    'GET',
+    NULL,
+    NULL,
+    NULL,
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.91,
+    '2.0.0'
+),
+(
+    gen_random_uuid(),
+    '33333333-3333-3333-3333-333333333333',
+    1707825840500000000,
+    'POLICY_DENIED',
+    'DENY',
+    'RULE-RISK-STRICT-01',
+    '203.0.113.45',
+    '/api/admin/dashboard',
+    'user-attacker',
+    '["user"]'::jsonb,
+    'GET',
+    'RULE-RISK-STRICT-01',
+    1,
     'cccccccc-0000-0000-0000-000000000003',
-    1707825800500000000,
-    'ATTACK', 'BLOCK',
-    'BLOCK_DELETE', '185.220.101.45', '/api/payments/delete-all'
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.91,
+    '2.0.0'
 );
-
--- NOTE for what-if demo:
--- With rule BLOCK_ATTACK added at position 1 in the snapshot,
--- firstDivergenceStep = 4 (attack blocked at step 4 in original,
--- but would be blocked at step 2 — the rapid scan — with stricter rules).

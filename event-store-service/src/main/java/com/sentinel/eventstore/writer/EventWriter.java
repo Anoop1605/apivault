@@ -34,7 +34,7 @@ public class EventWriter {
             SecurityEvent event = mapDtoToEntity(eventDto);
             
             // 1. Get the previous hash from the latest event in the DB
-            SecurityEvent latest = eventRepository.findTopByOrderByTimestampNsDesc();
+            SecurityEvent latest = eventRepository.findTopByOrderByTimestampNsDesc().orElse(null);
             String prevHash = (latest != null) ? latest.getEventHash() : "0000000000000000000000000000000000000000000000000000000000000000";
             event.setPreviousHash(prevHash);
             

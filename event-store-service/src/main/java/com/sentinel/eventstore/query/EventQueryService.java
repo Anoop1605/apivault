@@ -39,9 +39,28 @@ public class EventQueryService {
     }
 
     private EventDTO toDTO(SecurityEvent event) {
-        EventDTO dto = new EventDTO();
-        dto.setSessionId(event.getSessionId());
-        dto.setTimestampNs(event.getTimestampNs());
-        return dto;
+        return EventDTO.builder()
+                .eventId(event.getId())
+                .sessionId(event.getSessionId())
+                .timestampNs(event.getTimestampNs())
+                .eventType(event.getEventType())
+                .userId(event.getUserId())
+                .roles(event.getRoles())
+                .endpoint(event.getEndpoint())
+                .httpMethod(event.getHttpMethod())
+                .sourceIp(event.getSourceIp())
+                .userAgent(event.getUserAgent())
+                .policyRuleId(event.getPolicyRuleId())
+                .policyRuleVersion(event.getPolicyRuleVersion())
+                .policyRuleSnapshot(event.getPolicyRuleSnapshot())
+                .policyRuleSnapshotId(event.getPolicyRuleSnapshotId())
+                .riskScore(event.getRiskScore())
+                .riskSignals(event.getRiskSignals())
+                .decision(event.getDecision())
+                .requestContext(event.getRequestContext())
+                .bodyHash(event.getBodyHash())
+                .eventHash(event.getEventHash())
+                .gatewayVersion(event.getGatewayVersion())
+                .build();
     }
 }

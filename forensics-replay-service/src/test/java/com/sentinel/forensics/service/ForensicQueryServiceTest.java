@@ -20,11 +20,21 @@ class ForensicQueryServiceTest {
     @Test
     void verifyReplayHash_usesSameSnapshotRulesAsReplaySession() {
         UUID sessionId = UUID.randomUUID();
-        EventStoreClient client = sid -> List.of(
-                event(UUID.fromString("00000000-0000-0000-0000-000000000001"), sid, 1000L, "BLOCK_DELETE", "DELETE",
-                        EventType.ACCESS),
-                event(UUID.fromString("00000000-0000-0000-0000-000000000002"), sid, 2000L, "ALLOW_ALL", "GET",
-                        EventType.LOGIN));
+        EventStoreClient client = new EventStoreClient() {
+            @Override
+            public List<EventDTO> fetchEvents(UUID sid) {
+                return List.of(
+                        event(UUID.fromString("00000000-0000-0000-0000-000000000001"), sid, 1000L, "BLOCK_DELETE",
+                                "DELETE", EventType.ACCESS),
+                        event(UUID.fromString("00000000-0000-0000-0000-000000000002"), sid, 2000L, "ALLOW_ALL",
+                                "GET", EventType.LOGIN));
+            }
+
+            @Override
+            public List<UUID> fetchAllSessionIds() {
+                return List.of(sessionId);
+            }
+        };
 
         PolicyEngineClient policyClient = (event, snapshot) -> new EvaluationResult(event.getDecision().name(),
                 event.getPolicyRuleId(), event.getRiskScore());
@@ -32,6 +42,7 @@ class ForensicQueryServiceTest {
         WhatIfSimulationEngine whatIfSimulationEngine = new WhatIfSimulationEngine(replayEngine);
 
         ReplayService replayService = new ReplayService(
+                policyClient,
                 replayEngine,
                 whatIfSimulationEngine,
                 client);

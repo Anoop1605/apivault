@@ -7,6 +7,7 @@ import com.sentinel.shared.dto.EventDTO;
 import com.sentinel.shared.dto.PolicySnapshot;
 import com.sentinel.shared.dto.ReplayReport;
 import com.sentinel.shared.dto.SessionSummaryDTO;
+import com.sentinel.shared.enums.Decision;
 
 import java.util.Collections;
 import java.util.List;
@@ -54,11 +55,8 @@ public class ForensicQueryService {
      */
     public List<String> verifyEventHashes(UUID sessionId) {
         List<EventDTO> events = eventStoreClient.fetchEvents(sessionId);
-        // Re-compute each event hash and use it as the "stored" value for now.
-        // When real persistence is in place, storedHashes come from the DB column
-        // event_hash.
         List<String> storedHashes = events.stream()
-                .map(ReplayHashUtil::computeEventHash)
+                .map(EventDTO::getEventHash)
                 .collect(java.util.stream.Collectors.toList());
         com.sentinel.shared.dto.VerificationResult result = HashVerificationUtil.verifyAll(events, storedHashes);
         return HashVerificationUtil.findTampered(result);
@@ -82,12 +80,15 @@ public class ForensicQueryService {
             long end = events.stream().mapToLong(EventDTO::getTimestampNs).max().orElse(0);
             
             // Calculate metrics dynamically
-            long blockedCount = events.stream().filter(e -> "BLOCK".equals(e.getDecision())).count();
-            long attackCount = events.stream().filter(e -> "ATTACK".equals(e.getEventType())).count();
-            
-            // Calculate risk score dynamically: 20% per block + 30% per attack
-            double riskScore = Math.min(100, (blockedCount * 20.0) + (attackCount * 30.0));
-            
+            long blockedCount = events.stream()
+                    .filter(e -> e.getDecision() == Decision.BLOCK || e.getDecision() == Decision.DENY)
+                    .count();
+            double maxRiskScore = events.stream()
+                    .map(EventDTO::getRiskScore)
+                    .filter(java.util.Objects::nonNull)
+                    .max(Double::compareTo)
+                    .orElse(0.0);
+
             PolicySnapshot snapshot = new PolicySnapshot(Collections.emptyList());
             String hash = ReplayHashUtil.computeSessionHash(events, snapshot);
 
@@ -97,8 +98,9 @@ public class ForensicQueryService {
                     .lastSeenNs(end)
                     .eventCount(events.size())
                     .hash(hash)
-                    .maxRiskScore(riskScore)
+                    .maxRiskScore(maxRiskScore)
                     .denyCount((int) blockedCount)
+                    .flagged(maxRiskScore >= 0.7 || blockedCount > 0)
                     .build());
         }
         return summaries;

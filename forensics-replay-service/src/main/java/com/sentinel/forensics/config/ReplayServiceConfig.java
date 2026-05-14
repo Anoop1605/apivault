@@ -17,14 +17,14 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 public class ReplayServiceConfig {
 
-    @Value("${event-store.base-url:http://localhost:8082}")
+    @Value("${event-store.base-url:http://localhost:8081}")
     private String eventStoreBaseUrl;
 
     /**
      * Set to true in application.properties to use fixture mock data (no DB
      * needed).
      */
-    @Value("${event-store.use-mock:true}")
+    @Value("${event-store.use-mock:false}")
     private boolean useMock;
 
     @Bean
@@ -51,8 +51,8 @@ public class ReplayServiceConfig {
 
     @Bean
     public ReplayService replayService(ReplayEngine replayEngine, WhatIfSimulationEngine whatIfSimulationEngine,
-            EventStoreClient eventStoreClient) {
-        return new ReplayService(replayEngine, whatIfSimulationEngine, eventStoreClient);
+            EventStoreClient eventStoreClient, PolicyEngineClient policyEngineClient) {
+        return new ReplayService(policyEngineClient, replayEngine, whatIfSimulationEngine, eventStoreClient);
     }
 
     @Bean

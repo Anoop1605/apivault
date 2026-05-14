@@ -53,9 +53,10 @@ public class DashboardService {
                 .toList();
 
         boolean hasBlock = report.getSteps().stream()
-                .anyMatch(step -> step.getOriginalDecision() == Decision.BLOCK);
+                .anyMatch(step -> step.getOriginalDecision() == Decision.BLOCK
+                        || step.getOriginalDecision() == Decision.DENY);
 
-        Decision finalDecision = hasBlock ? Decision.BLOCK : Decision.ALLOW; // or POLICY_NO_MATCH
+        Decision finalDecision = hasBlock ? Decision.DENY : Decision.ALLOW;
 
         // The report natively tracks the snapshot ID used and the session hash!
         return new PolicyTraceDTO(sessionId,
@@ -71,7 +72,7 @@ public class DashboardService {
         List<AlertDTO> alerts = new ArrayList<>();
 
         for (ReplayReport.StepDecision step : report.getSteps()) {
-            if (step.getOriginalDecision() == Decision.BLOCK) {
+            if (step.getOriginalDecision() == Decision.BLOCK || step.getOriginalDecision() == Decision.DENY) {
                 alerts.add(new AlertDTO(
                         sessionId,
                         step.getTimestampNs(),

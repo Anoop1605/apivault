@@ -1,24 +1,10 @@
 #!/bin/bash
-# ============================================================
-# Sentinel Demo Fixture Loader
-# PRD §12.2 AC-17: loads 3 pre-built sessions into event store
-#
-# Usage:
-#   ./fixtures/load_demo_sessions.sh
-#
-# Environment variables (with defaults):
-#   DB_HOST     — PostgreSQL host       (default: localhost)
-#   DB_PORT     — PostgreSQL port       (default: 5432)
-#   DB_NAME     — database name         (default: sentinel_events)
-#   DB_USER     — database user         (default: sentinel)
-#   DB_PASS     — database password     (default: sentinel)
-# ============================================================
 
 set -e
 
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
-DB_NAME="${DB_NAME:-sentinel_events}"
+DB_NAME="${DB_NAME:-sentinel_db}"
 DB_USER="${DB_USER:-sentinel}"
 DB_PASS="${DB_PASS:-sentinel}"
 
@@ -27,32 +13,20 @@ SQL_DIR="$SCRIPT_DIR/sql"
 
 export PGPASSWORD="$DB_PASS"
 
-echo "============================================"
-echo "  Sentinel Demo Fixture Loader"
-echo "  Target: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
-echo "============================================"
+echo "Loading Sentinel demo sessions into $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
 
-run_sql() {
-    local file="$1"
-    local label="$2"
-    echo ""
-    echo ">> Loading: $label"
-    psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$file"
-    echo "   Done."
-}
-
-run_sql "$SQL_DIR/F01_normal_session.sql"    "F01 — Normal Session"
-run_sql "$SQL_DIR/F02_policy_violation.sql"  "F02 — Policy Violation"
-run_sql "$SQL_DIR/F03_attack_sequence.sql"   "F03 — Attack Sequence"
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$SQL_DIR/F01_normal_session.sql"
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$SQL_DIR/F02_policy_violation.sql"
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$SQL_DIR/F03_attack_sequence.sql"
 
 echo ""
-echo "============================================"
-echo "  All 3 demo sessions loaded successfully."
+echo "Loaded sessions:"
+echo "  normal   11111111-1111-1111-1111-111111111111"
+echo "  denied   22222222-2222-2222-2222-222222222222"
+echo "  attack   33333333-3333-3333-3333-333333333333"
 echo ""
-echo "  Session IDs:"
-echo "  F01 (normal):    aaaaaaaa-0000-0000-0000-000000000001"
-echo "  F02 (violation): bbbbbbbb-0000-0000-0000-000000000002"
-echo "  F03 (attack):    cccccccc-0000-0000-0000-000000000003"
-echo ""
-echo "  Open dashboard: http://localhost:8084/dashboard"
-echo "============================================"
+echo "Key API endpoints:"
+echo "  GET  http://localhost:8083/forensics/query/sessions"
+echo "  GET  http://localhost:8083/forensics/query/sessions/33333333-3333-3333-3333-333333333333/report"
+echo "  POST http://localhost:8083/forensics/replay"
+echo "  POST http://localhost:8083/forensics/sessions/33333333-3333-3333-3333-333333333333/whatif"

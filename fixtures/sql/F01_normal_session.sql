@@ -1,48 +1,65 @@
--- ============================================================
--- FIXTURE F01 — Normal Session
--- Session: aaaaaaaa-0000-0000-0000-000000000001
--- User: user-001 (standard API consumer)
--- Pattern: LOGIN → browse → logout — all ALLOW
--- Risk score: low (0.1)
--- ============================================================
+DELETE FROM security_events
+WHERE session_id = '11111111-1111-1111-1111-111111111111';
 
 INSERT INTO security_events (
-    id, session_id, timestamp_ns, event_type, decision,
-    rule_matched, source_ip, endpoint
+    id, session_id, timestamp_ns, event_type, decision, rule_matched, source_ip,
+    endpoint, user_id, roles_json, http_method, policy_rule_id, policy_rule_version,
+    policy_rule_snapshot_id, policy_rule_snapshot, risk_score, gateway_version
 ) VALUES
-
--- Step 1: Login
 (
     gen_random_uuid(),
-    'aaaaaaaa-0000-0000-0000-000000000001',
-    1707825600000000000,
-    'LOGIN', 'ALLOW',
-    'ALLOW_ALL', '192.168.1.10', '/auth/login'
+    '11111111-1111-1111-1111-111111111111',
+    1707825800000000000,
+    'REQUEST_RECEIVED',
+    NULL,
+    NULL,
+    '10.0.0.11',
+    '/api/users/profile',
+    'user-1001',
+    '["user"]'::jsonb,
+    'GET',
+    NULL,
+    NULL,
+    NULL,
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.12,
+    '2.0.0'
 ),
-
--- Step 2: Read users
 (
     gen_random_uuid(),
+    '11111111-1111-1111-1111-111111111111',
+    1707825800100000000,
+    'POLICY_ALLOWED',
+    'ALLOW',
+    'RULE-ALLOW-USER-PROFILE-01',
+    '10.0.0.11',
+    '/api/users/profile',
+    'user-1001',
+    '["user"]'::jsonb,
+    'GET',
+    'RULE-ALLOW-USER-PROFILE-01',
+    1,
     'aaaaaaaa-0000-0000-0000-000000000001',
-    1707825601000000000,
-    'ACCESS', 'ALLOW',
-    'ALLOW_GET', '192.168.1.10', '/api/users'
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.12,
+    '2.0.0'
 ),
-
--- Step 3: Read payments
 (
     gen_random_uuid(),
+    '11111111-1111-1111-1111-111111111111',
+    1707825800200000000,
+    'REQUEST_FORWARDED',
+    'ALLOW',
+    'RULE-ALLOW-USER-PROFILE-01',
+    '10.0.0.11',
+    '/api/users/profile',
+    'user-1001',
+    '["user"]'::jsonb,
+    'GET',
+    'RULE-ALLOW-USER-PROFILE-01',
+    1,
     'aaaaaaaa-0000-0000-0000-000000000001',
-    1707825602000000000,
-    'ACCESS', 'ALLOW',
-    'ALLOW_GET', '192.168.1.10', '/api/payments'
-),
-
--- Step 4: Logout
-(
-    gen_random_uuid(),
-    'aaaaaaaa-0000-0000-0000-000000000001',
-    1707825603000000000,
-    'LOGOUT', 'ALLOW',
-    'ALLOW_ALL', '192.168.1.10', '/auth/logout'
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.12,
+    '2.0.0'
 );

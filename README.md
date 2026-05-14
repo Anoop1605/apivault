@@ -1,196 +1,76 @@
-🔐 Event Store Service (Tamper-Proof Audit Log)
+# Sentinel
 
-A Spring Boot backend service that stores API events in a hash-chained structure to detect tampering.
+Sentinel is a demo-ready zero-trust API gateway with:
 
----
+- live ABAC enforcement through `gateway-service`
+- append-only audit storage in PostgreSQL via `event-store-service`
+- replay and what-if analysis through `forensics-replay-service`
 
-🚀 Features
+The frontend is not part of the critical demo path. The supported demo is API-first.
 
-- 🔗 Hash chaining (blockchain-like integrity)
-- ⏱️ Timestamp-based event ordering (nanoseconds)
-- 🔍 Chain verification endpoint
-- 📊 Event filtering (user, decision, risk, endpoint)
-- 🧾 Session timeline tracking
-- 🌐 Captures real request metadata (IP, endpoint, HTTP method)
+## Runtime
 
----
+- `gateway-service` on `8080`
+- `event-store-service` on `8081`
+- `policy-engine-service` on `8082`
+- `forensics-replay-service` on `8083`
+- PostgreSQL on `5432`
+- mock backends on `9001` to `9003`
 
-🧠 How it works
+Database defaults:
 
-Each event contains:
+- database: `sentinel_db`
+- user: `sentinel`
+- password: `sentinel`
 
-- "previousHash"
-- "currentHash"
+## Build
 
-Hash is generated as:
+```bash
+mvn clean package -DskipTests
+```
 
-hash = SHA256(previousHash + timestamp + userId + endpoint + method + ip + decision + riskScore)
+## Start
 
-👉 If ANY field is changed → hash mismatch → chain becomes invalid
+```bash
+docker-compose up --build
+```
 
----
+## Load demo sessions
 
-⚙️ Tech Stack
+```bash
+bash fixtures/load_demo_sessions.sh
+```
 
-- Java 17
-- Spring Boot 3
-- Spring Data JPA
-- PostgreSQL (or H2/MySQL configurable)
-- Flyway (DB migrations)
+Seeded sessions:
 
----
+- `11111111-1111-1111-1111-111111111111` normal request flow
+- `22222222-2222-2222-2222-222222222222` policy denial
+- `33333333-3333-3333-3333-333333333333` flagged and denied attack path
 
-▶️ How to Run
+## Core APIs
 
-1. Clone repository
+- `POST /api/events`
+- `GET /events/sessions`
+- `GET /events/sessions/{sessionId}`
+- `POST /policy/evaluate`
+- `POST /policy/evaluate-snapshot`
+- `GET /admin/policies/snapshots/{snapshotId}`
+- `POST /forensics/replay`
+- `GET /forensics/query/sessions`
+- `GET /forensics/query/sessions/{sessionId}/report`
+- `GET /forensics/query/sessions/{sessionId}/verify-hashes`
+- `POST /forensics/sessions/{sessionId}/whatif`
 
-git clone <your-repo-url>
-cd apivault
+## Demo checks
 
-2. Configure database (application.properties)
+1. Valid JWT to `GET /api/users/profile` should return `200`.
+2. Missing or bad JWT to the same path should return `401`.
+3. Non-admin `GET /api/admin/dashboard` should return `403`.
+4. `DELETE /api/payments/delete` with the wrong role or outside allowed hours should return `403`.
+5. `GET /forensics/query/sessions` should list live DB sessions.
+6. `POST /forensics/replay` with the seeded attack session should reconstruct stored decisions.
+7. `POST /forensics/sessions/{sessionId}/whatif` should show an earlier divergence for stricter policy.
 
-spring.datasource.url=jdbc:postgresql://localhost:5432/apivault
-spring.datasource.username=your_username
-spring.datasource.password=your_password
+## Note
 
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-
----
-
-3. Run application
-
-mvn spring-boot:run
-
----
-
-4. Server runs at
-
-http://localhost:8082
-
----
-
-📡 API Endpoints
-
-➤ Create Event
-
-POST /events
-
-Body:
-
-{
-  "userId": "user1",
-  "decision": "ALLOW",
-  "riskScore": 0.2
-}
-
----
-
-➤ Verify Chain
-
-GET /events/verify
-
-Response:
-
-- "Chain is VALID ✅"
-- "Chain is TAMPERED ❌"
-
----
-
-➤ Get All Events
-
-GET /events
-
----
-
-➤ Filter by User
-
-GET /events/user/{userId}
-
----
-
-➤ Filter by Decision
-
-GET /events/decision/{decision}
-
----
-
-➤ Filter by Time Range
-
-GET /events/time?start=2026-04-22T00:00:00Z&end=2026-04-23T00:00:00Z
-
----
-
-➤ High Risk Events
-
-GET /events/risk/high?threshold=0.5
-
----
-
-➤ Filter by Endpoint
-
-GET /events/endpoint?endpoint=/api/login
-
----
-
-➤ Session Timeline
-
-GET /events/sessions/{sessionId}/timeline
-
----
-
-➤ Internal Event Ingestion (Gateway)
-
-POST /events/internal/events
-
-Body:
-
-{
-  "eventType": "REQUEST_RECEIVED",
-  "endpoint": "/login",
-  "httpMethod": "POST",
-  "userId": "user1",
-  "decision": "ALLOW",
-  "riskScore": 0.3
-}
-
----
-
-🧪 Tamper Detection Test
-
-1. Insert events using POST "/events"
-2. Manually modify any record in DB
-3. Call:
-
-GET /events/verify
-
-👉 Output:
-
-Chain is TAMPERED ❌
-
----
-
-📂 Project Structure
-
-com.apivault.eventstore
-│── EventController.java
-│── EventService.java
-│── EventRepository.java
-│── Event.java
-│── HashUtil.java
-│── dto/
-
----
-
-📌 Future Improvements
-
-- 🔐 Digital signature (prevent forged hashes)
-- 🚨 Alert system for tampering detection
-- 📊 UI dashboard for visualization
-- 🌐 API Gateway integration
-
----
-
-👩‍💻 Author
-
-Your Name
+Older docs in the repo that still mention `apivault`, mock-only replay, or the larger UI are legacy notes and should not be treated as the current startup guide.

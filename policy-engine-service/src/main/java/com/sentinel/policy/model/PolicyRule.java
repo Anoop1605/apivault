@@ -56,6 +56,9 @@ public class PolicyRule {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Transient
+    private UUID snapshotId;
+
     /**
      * Represents a single condition specification within a rule.
      * Example: { "type": "ROLE", "operator": "EQUALS", "value": "admin" }

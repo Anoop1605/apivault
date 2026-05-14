@@ -24,33 +24,34 @@ public class PolicyService {
 
     private final PolicyRepository policyRepository;
     private final PolicyEngine policyEngine;
+    private final PolicySnapshotService policySnapshotService;
 
     /**
      * Get all active policies
      */
     public List<PolicyRule> getAllActivePolicies() {
-        return policyRepository.findByActiveTrueOrderByPriorityDesc();
+        return attachSnapshotIds(policyRepository.findByActiveTrueOrderByPriorityDesc());
     }
 
     /**
      * Get all policies (including inactive)
      */
     public List<PolicyRule> getAllPolicies() {
-        return policyRepository.findAllByOrderByPriorityDesc();
+        return attachSnapshotIds(policyRepository.findAllByOrderByPriorityDesc());
     }
 
     /**
      * Get policy by rule ID
      */
     public Optional<PolicyRule> getPolicyByRuleId(String ruleId) {
-        return policyRepository.findByRuleId(ruleId);
+        return policyRepository.findByRuleId(ruleId).map(this::attachSnapshotId);
     }
 
     /**
      * Get policy by UUID ID
      */
     public Optional<PolicyRule> getPolicyById(UUID id) {
-        return policyRepository.findById(id);
+        return policyRepository.findById(id).map(this::attachSnapshotId);
     }
 
     /**
@@ -77,9 +78,7 @@ public class PolicyService {
         log.info("Creating policy: ruleId={}, name={}", rule.getRuleId(), rule.getName());
         PolicyRule saved = policyRepository.save(rule);
 
-        // Reload policies in PolicyEngine
         reloadPoliciesInEngine();
-
         return saved;
     }
 
@@ -104,9 +103,7 @@ public class PolicyService {
         log.info("Updating policy: ruleId={}", ruleId);
         PolicyRule saved = policyRepository.save(existing);
 
-        // Reload policies in PolicyEngine
         reloadPoliciesInEngine();
-
         return saved;
     }
 
@@ -121,7 +118,6 @@ public class PolicyService {
         log.info("Deleting policy: ruleId={}", ruleId);
         policyRepository.delete(policy);
 
-        // Reload policies in PolicyEngine
         reloadPoliciesInEngine();
     }
 
@@ -139,9 +135,6 @@ public class PolicyService {
 
             log.info("Activating policy: ruleId={}", ruleId);
             PolicyRule saved = policyRepository.save(policy);
-
-            // In a real system, this would create a snapshot in policy_rules_history table
-            // For now, we just reload the policies in the engine
 
             reloadPoliciesInEngine();
             return saved;
@@ -176,8 +169,25 @@ public class PolicyService {
      * Reload all active policies into the PolicyEngine
      */
     public void reloadPoliciesInEngine() {
-        List<PolicyRule> activePolicies = getAllActivePolicies();
+        List<PolicyRule> activePolicies = attachSnapshotIds(policyRepository.findByActiveTrueOrderByPriorityDesc());
+        if (!activePolicies.isEmpty()) {
+            policySnapshotService.syncActiveSnapshots(activePolicies);
+            activePolicies = attachSnapshotIds(policyRepository.findByActiveTrueOrderByPriorityDesc());
+        }
         policyEngine.setPolicies(activePolicies);
         log.info("Reloaded {} active policies into PolicyEngine", activePolicies.size());
+    }
+
+    public com.sentinel.shared.dto.PolicySnapshot getSnapshot(UUID snapshotId) {
+        return policySnapshotService.getSnapshot(snapshotId);
+    }
+
+    private List<PolicyRule> attachSnapshotIds(List<PolicyRule> rules) {
+        return rules.stream().map(this::attachSnapshotId).toList();
+    }
+
+    private PolicyRule attachSnapshotId(PolicyRule rule) {
+        rule.setSnapshotId(policySnapshotService.getLatestSnapshotId(rule.getRuleId()));
+        return rule;
     }
 }

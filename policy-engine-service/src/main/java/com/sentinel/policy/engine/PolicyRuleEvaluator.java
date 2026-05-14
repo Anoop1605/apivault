@@ -3,6 +3,7 @@ package com.sentinel.policy.engine;
 import com.sentinel.shared.context.RequestContext;
 import com.sentinel.shared.enums.Decision;
 
+import java.util.UUID;
 import java.util.function.Predicate;
 
 /**
@@ -24,6 +25,8 @@ import java.util.function.Predicate;
 public record PolicyRuleEvaluator(
         String ruleId,
         Decision effect,
+        int ruleVersion,
+        UUID snapshotId,
         int priority,
         Predicate<RequestContext> predicate) {
     /**
@@ -48,5 +51,13 @@ public record PolicyRuleEvaluator(
 
     public Decision getEffect() {
         return effect;
+    }
+
+    public int getRuleVersion() {
+        return ruleVersion;
+    }
+
+    public UUID getSnapshotId() {
+        return snapshotId;
     }
 }

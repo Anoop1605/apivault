@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * RestPolicyEngineClient — Communicates with the Policy Engine service.
@@ -71,6 +72,13 @@ public class RestPolicyEngineClient implements PolicyEngineClient {
             log.error("Failed to call Policy Engine for simulation: {}", e.getMessage());
             return fallback(event);
         }
+    }
+
+    @Override
+    public PolicySnapshot fetchSnapshot(UUID snapshotId) {
+        return restTemplate.getForObject(
+                policyEngineUrl + "/admin/policies/snapshots/" + snapshotId,
+                PolicySnapshot.class);
     }
 
     private EvaluationResult fallback(EventDTO event) {

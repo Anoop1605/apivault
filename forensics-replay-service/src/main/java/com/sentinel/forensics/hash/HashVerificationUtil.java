@@ -34,6 +34,9 @@ public class HashVerificationUtil {
         for (int i = 0; i < events.size(); i++) {
             EventDTO event = events.get(i);
             String storedHash = i < storedHashes.size() ? storedHashes.get(i) : "";
+            if (storedHash == null || storedHash.isBlank()) {
+                continue;
+            }
             String computedHash = ReplayHashUtil.computeEventHash(event);
 
             if (!storedHash.equals(computedHash)) {

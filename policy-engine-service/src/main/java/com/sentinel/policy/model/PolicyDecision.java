@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * PolicyDecision — The decision outcome from evaluating a request against
@@ -20,10 +21,13 @@ import java.util.List;
 public class PolicyDecision {
 
     private String ruleId;
+    private Integer ruleVersion;
     private String decision;
     private List<String> matchedConditions;
     private long evaluationTimeNs;
     private double riskScore;
+    private UUID snapshotId;
+    private List<String> snapshotRules;
 
     public boolean isAllowed() {
         return "ALLOW".equalsIgnoreCase(decision);

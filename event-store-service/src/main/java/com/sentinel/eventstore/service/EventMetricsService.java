@@ -20,8 +20,8 @@ public class EventMetricsService {
 
     public SystemMetricsDTO getSystemMetrics() {
         long totalEvents = eventRepository.count();
-        long blockedThreats = eventRepository.countByDecision(Decision.BLOCK) + 
-                             eventRepository.countByDecision(Decision.DENY);
+        long blockedThreats = eventRepository.countByDecision(Decision.BLOCK)
+                + eventRepository.countByDecision(Decision.DENY);
         long activeSessions = eventRepository.countDistinctSessionIds();
         
         // In a real system, we would average the evaluationTimeNs from the DB.

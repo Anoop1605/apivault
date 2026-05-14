@@ -7,13 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * PolicySeeder — Seeds the database with default policy rules on startup.
- * Ensures the demo environment has a baseline set of rules to evaluate.
- */
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
@@ -23,82 +20,68 @@ public class PolicySeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (policyService.getAllPolicies().isEmpty()) {
-            log.info("Seeding default policy rules...");
-
-            // 1. Block SQL Injection
-            PolicyRule sqlRule = PolicyRule.builder()
-                    .id(UUID.randomUUID())
-                    .ruleId("RULE-SQL-01")
-                    .name("Block SQL Injection")
-                    .description("Deny any request containing common SQL injection keywords in the query string.")
-                    .priority(100)
-                    .active(true)
-                    .version(1)
-                    .effect("DENY")
-                    .conditions(List.of(
-                            new PolicyRule.ConditionSpec("QUERY", "CONTAINS", "SELECT"),
-                            new PolicyRule.ConditionSpec("QUERY", "CONTAINS", "DROP"),
-                            new PolicyRule.ConditionSpec("QUERY", "CONTAINS", "OR 1=1")
-                    ))
-                    .build();
-
-            // 2. High Risk Behavioral Block
-            PolicyRule riskRule = PolicyRule.builder()
-                    .id(UUID.randomUUID())
-                    .ruleId("RULE-RISK-01")
-                    .name("Strict Risk Enforcement")
-                    .description("Deny any request with a behavioral risk score above 0.8.")
-                    .priority(90)
-                    .active(true)
-                    .version(1)
-                    .effect("DENY")
-                    .conditions(List.of(
-                            new PolicyRule.ConditionSpec("RISK", "GREATER_THAN", 0.8)
-                    ))
-                    .build();
-
-            // 3. Admin Access Only
-            PolicyRule adminRule = PolicyRule.builder()
-                    .id(UUID.randomUUID())
-                    .ruleId("RULE-ADMIN-01")
-                    .name("Admin Only Endpoints")
-                    .description("Require ADMIN role for any path starting with /admin.")
-                    .priority(80)
-                    .active(true)
-                    .version(1)
-                    .effect("DENY")
-                    .conditions(List.of(
-                            new PolicyRule.ConditionSpec("ENDPOINT", "STARTS_WITH", "/admin"),
-                            new PolicyRule.ConditionSpec("ROLE", "NOT_EQUALS", "ADMIN")
-                    ))
-                    .build();
-            
-            // 4. Default Allow (Zero Trust Fallback is DENY, but we can have an explicit allow rule for common paths)
-            PolicyRule allowRule = PolicyRule.builder()
-                    .id(UUID.randomUUID())
-                    .ruleId("RULE-ALLOW-01")
-                    .name("Allow Public APIs")
-                    .description("Allow access to public API endpoints.")
-                    .priority(10)
-                    .active(true)
-                    .version(1)
-                    .effect("ALLOW")
-                    .conditions(List.of(
-                            new PolicyRule.ConditionSpec("ENDPOINT", "STARTS_WITH", "/api/public")
-                    ))
-                    .build();
-
-            policyService.createPolicy(sqlRule);
-            policyService.createPolicy(riskRule);
-            policyService.createPolicy(adminRule);
-            policyService.createPolicy(allowRule);
-
-            log.info("Default policies seeded successfully.");
-        } else {
-            log.info("Policies already exist. Skipping seed.");
-            // Still reload to ensure engine cache is warm
+        if (!policyService.getAllPolicies().isEmpty()) {
             policyService.reloadPoliciesInEngine();
+            return;
         }
+
+        log.info("Seeding demo ABAC policies");
+        policyService.createPolicy(rule(
+                "RULE-RISK-STRICT-01",
+                "Strict high-risk denial",
+                100,
+                "DENY",
+                List.of(new PolicyRule.ConditionSpec("RISK", "GREATER_THAN", 0.85))));
+
+        policyService.createPolicy(rule(
+                "RULE-ALLOW-USER-PROFILE-01",
+                "Allow user profile reads",
+                30,
+                "ALLOW",
+                List.of(
+                        new PolicyRule.ConditionSpec("ENDPOINT", "EQUALS", "/api/users/profile"),
+                        new PolicyRule.ConditionSpec("METHOD", "EQUALS", "GET"))));
+
+        policyService.createPolicy(rule(
+                "RULE-ALLOW-ADMIN-READ-01",
+                "Allow admin read endpoints for admin role",
+                40,
+                "ALLOW",
+                List.of(
+                        new PolicyRule.ConditionSpec("ROLE", "EQUALS", "admin"),
+                        new PolicyRule.ConditionSpec("ENDPOINT", "STARTS_WITH", "/api/admin"),
+                        new PolicyRule.ConditionSpec("METHOD", "EQUALS", "GET"))));
+
+        policyService.createPolicy(rule(
+                "RULE-ALLOW-PAYMENT-DELETE-01",
+                "Allow finance-admin payment delete during business hours",
+                50,
+                "ALLOW",
+                List.of(
+                        new PolicyRule.ConditionSpec("ROLE", "EQUALS", "finance-admin"),
+                        new PolicyRule.ConditionSpec("ENDPOINT", "EQUALS", "/api/payments/delete"),
+                        new PolicyRule.ConditionSpec("METHOD", "EQUALS", "DELETE"),
+                        new PolicyRule.ConditionSpec("TIME", "BETWEEN", "09:00-17:00"),
+                        new PolicyRule.ConditionSpec("RISK", "LESS_THAN", 0.70))));
+
+        policyService.reloadPoliciesInEngine();
+    }
+
+    private PolicyRule rule(String ruleId, String name, int priority, String effect,
+            List<PolicyRule.ConditionSpec> conditions) {
+        LocalDateTime now = LocalDateTime.now();
+        return PolicyRule.builder()
+                .id(UUID.randomUUID())
+                .ruleId(ruleId)
+                .name(name)
+                .description(name)
+                .priority(priority)
+                .active(true)
+                .version(1)
+                .effect(effect)
+                .conditions(conditions)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
     }
 }

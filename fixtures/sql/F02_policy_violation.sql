@@ -1,58 +1,46 @@
--- ============================================================
--- FIXTURE F02 — Policy Violation
--- Session: bbbbbbbb-0000-0000-0000-000000000002
--- User: user-002 (internal engineer attempting destructive ops)
--- Pattern: LOGIN → read → DELETE blocked → retry → LOGOUT
--- Risk score: medium (0.5)
--- Key: BLOCK_DELETE rule fires at step 3
--- ============================================================
+DELETE FROM security_events
+WHERE session_id = '22222222-2222-2222-2222-222222222222';
 
 INSERT INTO security_events (
-    id, session_id, timestamp_ns, event_type, decision,
-    rule_matched, source_ip, endpoint
+    id, session_id, timestamp_ns, event_type, decision, rule_matched, source_ip,
+    endpoint, user_id, roles_json, http_method, policy_rule_id, policy_rule_version,
+    policy_rule_snapshot_id, policy_rule_snapshot, risk_score, gateway_version
 ) VALUES
-
--- Step 1: Login
 (
     gen_random_uuid(),
-    'bbbbbbbb-0000-0000-0000-000000000002',
-    1707825700000000000,
-    'LOGIN', 'ALLOW',
-    'ALLOW_ALL', '10.0.0.55', '/auth/login'
+    '22222222-2222-2222-2222-222222222222',
+    1707868800000000000,
+    'REQUEST_RECEIVED',
+    NULL,
+    NULL,
+    '10.0.1.50',
+    '/api/payments/delete',
+    'user-9921',
+    '["finance-admin"]'::jsonb,
+    'DELETE',
+    NULL,
+    NULL,
+    NULL,
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.40,
+    '2.0.0'
 ),
-
--- Step 2: Read admin users — allowed
 (
     gen_random_uuid(),
+    '22222222-2222-2222-2222-222222222222',
+    1707868800100000000,
+    'POLICY_DENIED',
+    'DENY',
+    'RULE-ALLOW-PAYMENT-DELETE-01',
+    '10.0.1.50',
+    '/api/payments/delete',
+    'user-9921',
+    '["finance-admin"]'::jsonb,
+    'DELETE',
+    'RULE-ALLOW-PAYMENT-DELETE-01',
+    1,
     'bbbbbbbb-0000-0000-0000-000000000002',
-    1707825701000000000,
-    'ACCESS', 'ALLOW',
-    'ALLOW_GET', '10.0.0.55', '/api/admin/users'
-),
-
--- Step 3: DELETE payment record — BLOCKED by policy
-(
-    gen_random_uuid(),
-    'bbbbbbbb-0000-0000-0000-000000000002',
-    1707825702000000000,
-    'ACCESS', 'BLOCK',
-    'BLOCK_DELETE', '10.0.0.55', '/api/payments/txn-9921'
-),
-
--- Step 4: Retry DELETE — BLOCKED again
-(
-    gen_random_uuid(),
-    'bbbbbbbb-0000-0000-0000-000000000002',
-    1707825703000000000,
-    'ACCESS', 'BLOCK',
-    'BLOCK_DELETE', '10.0.0.55', '/api/payments/txn-9921'
-),
-
--- Step 5: Logout
-(
-    gen_random_uuid(),
-    'bbbbbbbb-0000-0000-0000-000000000002',
-    1707825704000000000,
-    'LOGOUT', 'ALLOW',
-    'ALLOW_ALL', '10.0.0.55', '/auth/logout'
+    '["RULE-RISK-STRICT-01","RULE-ALLOW-USER-PROFILE-01","RULE-ALLOW-ADMIN-READ-01","RULE-ALLOW-PAYMENT-DELETE-01"]',
+    0.40,
+    '2.0.0'
 );

@@ -5,12 +5,8 @@ import com.sentinel.shared.context.RequestContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 
 /**
  * ConditionEvaluator — Evaluates policy conditions against request attributes.
@@ -48,6 +44,10 @@ public class ConditionEvaluator {
                     return compileIPCondition(operator, value);
                 case "RISK":
                     return compileRiskCondition(operator, value);
+                case "ENDPOINT":
+                    return compileEndpointCondition(operator, value);
+                case "METHOD":
+                    return compileMethodCondition(operator, value);
                 default:
                     log.warn("Unknown condition type: {}", type);
                     return ctx -> false;
@@ -66,7 +66,8 @@ public class ConditionEvaluator {
 
         if ("EQUALS".equalsIgnoreCase(operator)) {
             return ctx -> ctx.getRoles() != null && ctx.getRoles().contains(targetRole);
-        } else if ("CONTAINS".equalsIgnoreCase(operator)) {
+        }
+        if ("CONTAINS".equalsIgnoreCase(operator)) {
             return ctx -> {
                 if (ctx.getRoles() == null)
                     return false;
@@ -88,7 +89,6 @@ public class ConditionEvaluator {
         if ("BETWEEN".equalsIgnoreCase(operator)) {
             String[] parts = value.toString().split("-");
             if (parts.length == 2) {
-                // Parsed ONCE during compilation
                 LocalTime start = LocalTime.parse(parts[0]);
                 LocalTime end = LocalTime.parse(parts[1]);
 
@@ -146,6 +146,28 @@ public class ConditionEvaluator {
             default:
                 return ctx -> false;
         }
+    }
+
+    private static Predicate<RequestContext> compileEndpointCondition(String operator, Object value) {
+        String target = value.toString();
+        if ("EQUALS".equalsIgnoreCase(operator)) {
+            return ctx -> target.equals(ctx.getEndpoint());
+        }
+        if ("STARTS_WITH".equalsIgnoreCase(operator)) {
+            return ctx -> ctx.getEndpoint() != null && ctx.getEndpoint().startsWith(target);
+        }
+        if ("CONTAINS".equalsIgnoreCase(operator)) {
+            return ctx -> ctx.getEndpoint() != null && ctx.getEndpoint().contains(target);
+        }
+        return ctx -> false;
+    }
+
+    private static Predicate<RequestContext> compileMethodCondition(String operator, Object value) {
+        String target = value.toString();
+        if ("EQUALS".equalsIgnoreCase(operator)) {
+            return ctx -> ctx.getHttpMethod() != null && ctx.getHttpMethod().equalsIgnoreCase(target);
+        }
+        return ctx -> false;
     }
 
     /**
